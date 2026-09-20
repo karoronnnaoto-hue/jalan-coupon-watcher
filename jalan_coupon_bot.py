@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import html
 import json
+import math
 import os
 import re
 import sys
@@ -27,7 +28,17 @@ from urllib.request import Request, urlopen
 
 BASE_URL = "https://www.jalan.net"
 LISTING_URL = f"{BASE_URL}/jalancponsum/zenkoku/"
+LISTING_PARAMS = {
+    "screenId": "UWW7862",
+    "searchType": "2",
+    "stayCount": "1",
+    "couponPriceMin": "0",
+    "couponPriceMax": "999999",
+    "priceMax": "999999",
+    "activeSort": "2",
+}
 DEFAULT_USER_AGENT = "JalanCouponWatcher/1.0 (+personal, low-frequency monitor)"
+STATE_SCHEMA_VERSION = 2
 
 
 @dataclass(frozen=True)
@@ -182,8 +193,26 @@ def parse_coupons(page_html: str) -> list[Coupon]:
     return parser.coupons
 
 
+def coupon_key(coupon: Coupon) -> str:
+    return f"{coupon.coupon_id}:{coupon.yad_no}"
+
+
+def build_listing_url(page: int) -> str:
+    params = {**LISTING_PARAMS, "pageIdx": max(1, page)}
+    return f"{LISTING_URL}?{urlencode(params)}"
+
+
+def parse_total_results(page_html: str) -> int:
+    decoded = html.unescape(page_html)
+    match = re.search(r"[（(]\s*([0-9０-９,，]+)\s*件中\s*[）)]", decoded)
+    if not match:
+        raise RuntimeError("Could not determine the total coupon count from the listing page")
+    normalized = match.group(1).translate(str.maketrans("０１２３４５６７８９，", "0123456789,"))
+    return int(normalized.replace(",", ""))
+
+
 def fetch_page(page: int, timeout: int, user_agent: str) -> str:
-    url = LISTING_URL if page == 1 else f"{LISTING_URL}?{urlencode({'pageIdx': page})}"
+    url = build_listing_url(page)
     request = Request(url, headers={"User-Agent": user_agent, "Accept-Language": "ja"})
     with urlopen(request, timeout=timeout) as response:
         raw = response.read()
@@ -191,30 +220,67 @@ def fetch_page(page: int, timeout: int, user_agent: str) -> str:
     return raw.decode("cp932", errors="replace")
 
 
+def _fetch_parsed_page(
+    page: int,
+    timeout: int,
+    user_agent: str,
+    attempts: int,
+    retry_delay: float,
+) -> tuple[str, list[Coupon]]:
+    last_error: Exception | None = None
+    for attempt in range(attempts):
+        try:
+            page_html = fetch_page(page, timeout, user_agent)
+            parsed = parse_coupons(page_html)
+            if parsed:
+                return page_html, parsed
+            last_error = RuntimeError(f"Page {page} contained no coupon entries")
+        except (HTTPError, URLError, OSError) as exc:
+            last_error = exc
+        if attempt + 1 < attempts:
+            time.sleep(retry_delay)
+    raise RuntimeError(f"Failed to read coupon page {page} after {attempts} attempts: {last_error}")
+
+
 def fetch_coupons(config: dict[str, Any]) -> list[Coupon]:
-    pages = max(1, min(int(config.get("pages_to_scan", 3)), 34))
     delay = max(float(config.get("request_delay_seconds", 2.0)), 1.0)
     timeout = max(int(config.get("request_timeout_seconds", 20)), 5)
     user_agent = str(config.get("user_agent") or DEFAULT_USER_AGENT)
+    attempts = max(1, min(int(config.get("request_retry_count", 3)), 5))
+    retry_delay = max(float(config.get("retry_delay_seconds", 3.0)), 1.0)
+    max_pages = max(1, int(config.get("max_pages_to_scan", 100)))
     collected: dict[str, Coupon] = {}
 
-    for page in range(1, pages + 1):
-        if page > 1:
-            time.sleep(delay)
-        parsed = parse_coupons(fetch_page(page, timeout, user_agent))
-        if not parsed:
-            raise RuntimeError(f"Page {page} contained no coupon entries; markup may have changed")
+    first_html, first_page = _fetch_parsed_page(1, timeout, user_agent, attempts, retry_delay)
+    total_results = parse_total_results(first_html)
+    pages = max(1, math.ceil(total_results / len(first_page)))
+    page_override = int(config.get("pages_to_scan", 0))
+    if page_override > 0:
+        pages = min(pages, page_override)
+    elif pages > max_pages:
+        raise RuntimeError(f"Listing requires {pages} pages, above max_pages_to_scan={max_pages}")
+
+    for coupon in first_page:
+        collected[coupon_key(coupon)] = coupon
+    for page in range(2, pages + 1):
+        time.sleep(delay)
+        _, parsed = _fetch_parsed_page(page, timeout, user_agent, attempts, retry_delay)
         for coupon in parsed:
-            collected[coupon.coupon_id] = coupon
+            collected[coupon_key(coupon)] = coupon
     return list(collected.values())
 
 
 def matches(coupon: Coupon, config: dict[str, Any]) -> bool:
     min_amount = int(config.get("minimum_coupon_yen", 5000))
-    min_rate = float(config.get("minimum_discount_rate", 0.30))
+    min_rate = float(config.get("minimum_discount_rate", 0.50))
     amount_match = coupon.discount_yen >= min_amount
-    rate_match = coupon.discount_rate is not None and coupon.discount_rate >= min_rate
-    return (amount_match and rate_match) if config.get("match_mode") == "all" else (amount_match or rate_match)
+    rate_match = coupon.discount_rate is not None and coupon.discount_rate > min_rate
+    match_mode = config.get("match_mode", "rate")
+    if match_mode == "rate":
+        return rate_match
+    if match_mode == "all":
+        return amount_match and rate_match
+    return amount_match or rate_match
 
 
 def load_json(path: Path, default: dict[str, Any]) -> dict[str, Any]:
@@ -339,10 +405,11 @@ def run(args: argparse.Namespace) -> int:
         return 0
 
     state = load_json(state_path, {"initialized": False, "seen": {}})
-    seen: dict[str, str] = state.setdefault("seen", {})
+    schema_matches = state.get("schema_version") == STATE_SCHEMA_VERSION
+    seen: dict[str, str] = state.setdefault("seen", {}) if schema_matches else {}
     now = datetime.now(timezone.utc).isoformat()
-    is_first_run = not bool(state.get("initialized"))
-    new_coupons = [coupon for coupon in coupons if coupon.coupon_id not in seen]
+    is_first_run = not schema_matches or not bool(state.get("initialized"))
+    new_coupons = [coupon for coupon in coupons if coupon_key(coupon) not in seen]
     candidates = [coupon for coupon in new_coupons if matches(coupon, config)]
     if is_first_run and not args.notify_existing:
         candidates = []
@@ -353,7 +420,10 @@ def run(args: argparse.Namespace) -> int:
         notify_discord(webhook_url, candidates, config)
 
     for coupon in coupons:
-        seen[coupon.coupon_id] = seen.get(coupon.coupon_id, now)
+        key = coupon_key(coupon)
+        seen[key] = seen.get(key, now)
+    state["seen"] = seen
+    state["schema_version"] = STATE_SCHEMA_VERSION
     max_seen = max(int(config.get("max_seen_ids", 10000)), 1000)
     if len(seen) > max_seen:
         state["seen"] = dict(sorted(seen.items(), key=lambda item: item[1], reverse=True)[:max_seen])

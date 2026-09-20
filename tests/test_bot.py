@@ -1,11 +1,20 @@
 import sys
 import unittest
+from dataclasses import replace
 from pathlib import Path
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from jalan_coupon_bot import DEFAULT_USER_AGENT, matches, parse_coupons, post_discord
+from jalan_coupon_bot import (
+    DEFAULT_USER_AGENT,
+    build_listing_url,
+    coupon_key,
+    matches,
+    parse_coupons,
+    parse_total_results,
+    post_discord,
+)
 
 
 FIXTURE = """
@@ -42,13 +51,23 @@ class ParserTests(unittest.TestCase):
 
     def test_thresholds(self):
         coupon = parse_coupons(FIXTURE)[0]
-        self.assertTrue(matches(coupon, {"minimum_coupon_yen": 10000, "minimum_discount_rate": 0.5}))
-        self.assertFalse(
-            matches(
-                coupon,
-                {"minimum_coupon_yen": 10000, "minimum_discount_rate": 0.95, "match_mode": "all"},
-            )
-        )
+        config = {"minimum_discount_rate": 0.5, "match_mode": "rate"}
+        self.assertTrue(matches(coupon, config))
+        self.assertFalse(matches(replace(coupon, discount_yen=5000), config))
+        self.assertFalse(matches(replace(coupon, discount_yen=4900), config))
+
+    def test_listing_url_preserves_search_filters(self):
+        url = build_listing_url(7)
+        self.assertIn("screenId=UWW7862", url)
+        self.assertIn("searchType=2", url)
+        self.assertIn("couponPriceMin=0", url)
+        self.assertIn("activeSort=2", url)
+        self.assertIn("pageIdx=7", url)
+
+    def test_total_count_and_coupon_key(self):
+        coupon = parse_coupons(FIXTURE)[0]
+        self.assertEqual(parse_total_results('<span>（1,000件中）</span>'), 1000)
+        self.assertEqual(coupon_key(coupon), "COU123:456")
 
     def test_discord_request_uses_user_agent(self):
         class Response:
