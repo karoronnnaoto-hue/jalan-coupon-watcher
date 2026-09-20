@@ -1,0 +1,12 @@
+{
+  "minimum_coupon_yen": 5000,
+  "minimum_discount_rate": 0.3,
+  "anomaly_discount_rate": 0.5,
+  "match_mode": "any",
+  "pages_to_scan": 3,
+  "request_delay_seconds": 2.0,
+  "request_timeout_seconds": 20,
+  "max_seen_ids": 10000,
+  "write_run_metadata": false,
+  "state_file": "data/state.json"
+}
