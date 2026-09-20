@@ -256,7 +256,7 @@ def _embed(coupon: Coupon, anomaly_rate: float) -> dict[str, Any]:
         {"name": "クーポン額", "value": _fmt_yen(coupon.discount_yen), "inline": True},
         {"name": "最低予約金額", "value": _fmt_yen(coupon.minimum_reservation_yen), "inline": True},
         {"name": "実質割引率", "value": "算出不可" if rate is None else f"{rate:.1%}", "inline": True},
-        {"name": "配�期間", "value": coupon.distribution_period or "不明", "inline": False},
+        {"name": "配布期間", "value": coupon.distribution_period or "不明", "inline": False},
     ]
     if coupon.stay_period:
         fields.append({"name": "宿泊対象期間", "value": coupon.stay_period, "inline": False})
