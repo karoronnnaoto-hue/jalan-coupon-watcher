@@ -20,7 +20,7 @@ FIXTURE = """
       <dt>予約期間</dt><dd>2026年9月19日〜2026年9月20日</dd>
       <dt>宿泊対象期間</dt><dd><a href="//www.jalan.net/uw/uwp7800/uww7832.do?x=1">カレンダー</a></dd>
       <dt>予約金額</dt><dd>10,000円（税込）以上</dd>
-      <dt>クーポン額</dt><dd><span>9,000円刎</span></dd>
+      <dt>クーポン額</dt><dd><span>9,000円分</span></dd>
     </dl>
     <a href="javascript:doPromotionDtl('COU123','456')">詳細・クーポンGET</a>
   </li>
