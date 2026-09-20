@@ -272,7 +272,7 @@ def _embed(coupon: Coupon, anomaly_rate: float) -> dict[str, Any]:
 def post_discord(webhook_url: str, payload: dict[str, Any], timeout: int = 20) -> None:
     body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
     for attempt in range(3):
-        request = Request(webhook_url, data=body, method="POST", headers={"Content-Type": "application/json"})
+        request = Request(webhook_url, data=body, method="POST", headers={"Content-Type": "application/json", "User-Agent": DEFAULT_USER_AGENT})
         try:
             with urlopen(request, timeout=timeout) as response:
                 response.read()
