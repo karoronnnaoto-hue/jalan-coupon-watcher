@@ -3,7 +3,7 @@ name: Monitor Jalan coupons
 on:
   schedule:
     # GitHub-hosted schedules are more reliable away from the top of the hour.
-    - cron: "7,27,47 * * * *"
+    - cron: "5,17,29,41,53 * * * *"
   workflow_dispatch:
     inputs:
       notify_existing:

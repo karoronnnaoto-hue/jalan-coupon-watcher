@@ -57,20 +57,20 @@ python3 jalan_coupon_bot.py --config config.json
 python3 jalan_coupon_bot.py --config config.json --notify-existing
 ```
 
-## 4. 1時間に3回実行（cron）
+## 4. 12分おきに実行（cron）
 
 プロジェクトの絶対パスが `/opt/jalan-coupon-watcher` の例です。`crontab -e` に追加します。
 
 ```cron
 DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/...
-7,27,47 * * * * cd /opt/jalan-coupon-watcher && /usr/bin/python3 jalan_coupon_bot.py --config config.json >> bot.log 2>&1
+5,17,29,41,53 * * * * cd /opt/jalan-coupon-watcher && /usr/bin/python3 jalan_coupon_bot.py --config config.json >> bot.log 2>&1
 ```
 
 Webhook URLをcrontabへ直接書きたくない場合は、権限を絞った環境ファイルやsystemd timerを使ってください。
 
 ## GitHub Actionsで常時実行
 
-`.github/workflows/monitor.yml` を同梱しています。ZIPを展開した中身をGitHubリポジトリ直下へアップロードすると、毎時7分・27分・47分を目安に自動実行できます。
+`.github/workflows/monitor.yml` を同梱しています。ZIPを展開した中身をGitHubリポジトリ直下へアップロードすると、毎時5分・17分・29分・41分・53分（約12分間隔）を目安に自動実行できます。
 
 1. GitHubで新しいリポジトリを作成します。
 2. ZIPを展開し、中身をリポジトリ直下へアップロードします。
