@@ -8,7 +8,7 @@
   "request_timeout_seconds": 20,
   "request_retry_count": 3,
   "retry_delay_seconds": 3.0,
-  "max_seen_ids": 10000,
+  "daily_status_hour_jst": 21,
   "write_run_metadata": false,
   "state_file": "data/state.json"
 }

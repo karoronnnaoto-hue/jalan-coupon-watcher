@@ -2,11 +2,17 @@ name: Monitor Jalan coupons
 
 on:
   schedule:
-    - cron: "*/10 * * * *"
+    # GitHub-hosted schedules are more reliable away from the top of the hour.
+    - cron: "7,27,47 * * * *"
   workflow_dispatch:
     inputs:
       notify_existing:
         description: "初回から現在の該当クーポンを通知する"
+        required: false
+        type: boolean
+        default: false
+      force_daily_status:
+        description: "新着なしの日次報告を今すぐ送る"
         required: false
         type: boolean
         default: false
@@ -40,10 +46,14 @@ jobs:
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           NOTIFY_EXISTING: ${{ inputs.notify_existing || 'false' }}
+          FORCE_DAILY_STATUS: ${{ inputs.force_daily_status || 'false' }}
         run: |
           args=()
           if [[ "$NOTIFY_EXISTING" == "true" ]]; then
             args+=(--notify-existing)
+          fi
+          if [[ "$FORCE_DAILY_STATUS" == "true" ]]; then
+            args+=(--force-daily-status)
           fi
           python jalan_coupon_bot.py --config config.example.json "${args[@]}"
 

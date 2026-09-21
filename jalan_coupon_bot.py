@@ -8,6 +8,7 @@ or automate reservations.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import html
 import json
 import math
@@ -17,7 +18,7 @@ import sys
 import tempfile
 import time
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any, Iterable
@@ -38,7 +39,8 @@ LISTING_PARAMS = {
     "activeSort": "2",
 }
 DEFAULT_USER_AGENT = "JalanCouponWatcher/1.0 (+personal, low-frequency monitor)"
-STATE_SCHEMA_VERSION = 2
+STATE_SCHEMA_VERSION = 3
+JST = timezone(timedelta(hours=9))
 
 
 @dataclass(frozen=True)
@@ -195,6 +197,26 @@ def parse_coupons(page_html: str) -> list[Coupon]:
 
 def coupon_key(coupon: Coupon) -> str:
     return f"{coupon.coupon_id}:{coupon.yad_no}"
+
+
+def coupon_signature(coupon: Coupon) -> str:
+    serialized = json.dumps(asdict(coupon), ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
+
+
+def build_snapshot(coupons: Iterable[Coupon]) -> dict[str, str]:
+    return {coupon_key(coupon): coupon_signature(coupon) for coupon in coupons}
+
+
+def compare_snapshots(
+    previous: dict[str, str], current: dict[str, str]
+) -> tuple[set[str], set[str], set[str]]:
+    previous_keys = set(previous)
+    current_keys = set(current)
+    added = current_keys - previous_keys
+    removed = previous_keys - current_keys
+    changed = {key for key in previous_keys & current_keys if previous[key] != current[key]}
+    return added, changed, removed
 
 
 def build_listing_url(page: int) -> str:
@@ -371,6 +393,39 @@ def notify_discord(webhook_url: str, coupons: list[Coupon], config: dict[str, An
         )
 
 
+def daily_status_due(state: dict[str, Any], now: datetime, report_hour_jst: int) -> bool:
+    checked_at_jst = now.astimezone(JST)
+    return (
+        checked_at_jst.hour >= report_hour_jst
+        and state.get("last_daily_status_jst") != checked_at_jst.date().isoformat()
+    )
+
+
+def notify_daily_status(
+    webhook_url: str,
+    fetched_count: int,
+    matching_count: int,
+    added_count: int,
+    changed_count: int,
+    removed_count: int,
+    checked_at: datetime,
+) -> None:
+    checked_at_jst = checked_at.astimezone(JST)
+    post_discord(
+        webhook_url,
+        {
+            "content": (
+                "✅ じゃらんクーポン監視は正常です。\n"
+                "現時点では新しい該当クーポンはありません。\n"
+                f"確認時刻: {checked_at_jst:%Y-%m-%d %H:%M} JST\n"
+                f"掲載: {fetched_count:,}宿分 / 割引率50%超: {matching_count:,}件\n"
+                f"前回差分: 追加 {added_count:,} / 変更 {changed_count:,} / 掲載終了 {removed_count:,}"
+            ),
+            "username": "じゃらんクーポン監視",
+        },
+    )
+
+
 def print_coupons(coupons: Iterable[Coupon]) -> None:
     for coupon in coupons:
         rate = "不明" if coupon.discount_rate is None else f"{coupon.discount_rate:.1%}"
@@ -404,35 +459,63 @@ def run(args: argparse.Namespace) -> int:
         print_coupons(selected)
         return 0
 
-    state = load_json(state_path, {"initialized": False, "seen": {}})
+    state = load_json(state_path, {"initialized": False, "snapshot": {}})
     schema_matches = state.get("schema_version") == STATE_SCHEMA_VERSION
-    seen: dict[str, str] = state.setdefault("seen", {}) if schema_matches else {}
-    now = datetime.now(timezone.utc).isoformat()
+    now_dt = datetime.now(timezone.utc)
+    now = now_dt.isoformat()
     is_first_run = not schema_matches or not bool(state.get("initialized"))
-    new_coupons = [coupon for coupon in coupons if coupon_key(coupon) not in seen]
-    candidates = [coupon for coupon in new_coupons if matches(coupon, config)]
-    if is_first_run and not args.notify_existing:
-        candidates = []
+    previous_snapshot: dict[str, str] = state.get("snapshot", {}) if schema_matches else {}
+    current_snapshot = build_snapshot(coupons)
+    added_keys, changed_keys, removed_keys = compare_snapshots(previous_snapshot, current_snapshot)
+    changed_coupons = [
+        coupon for coupon in coupons if coupon_key(coupon) in added_keys | changed_keys
+    ]
+    candidates = [coupon for coupon in changed_coupons if matches(coupon, config)]
+    if is_first_run:
+        candidates = selected if args.notify_existing else []
+        report_added_count = report_changed_count = report_removed_count = 0
+    else:
+        report_added_count = len(added_keys)
+        report_changed_count = len(changed_keys)
+        report_removed_count = len(removed_keys)
 
     if candidates:
         if not webhook_url:
             raise ValueError("Matching coupons found, but DISCORD_WEBHOOK_URL is not set")
         notify_discord(webhook_url, candidates, config)
 
-    for coupon in coupons:
-        key = coupon_key(coupon)
-        seen[key] = seen.get(key, now)
-    state["seen"] = seen
+    report_hour_jst = max(0, min(int(config.get("daily_status_hour_jst", 21)), 23))
+    if candidates:
+        state["last_daily_status_jst"] = now_dt.astimezone(JST).date().isoformat()
+    elif args.force_daily_status or daily_status_due(state, now_dt, report_hour_jst):
+        if not webhook_url:
+            raise ValueError("Daily status is due, but DISCORD_WEBHOOK_URL is not set")
+        notify_daily_status(
+            webhook_url,
+            len(coupons),
+            len(selected),
+            report_added_count,
+            report_changed_count,
+            report_removed_count,
+            now_dt,
+        )
+        state["last_daily_status_jst"] = now_dt.astimezone(JST).date().isoformat()
+
+    state.pop("seen", None)
+    state["snapshot"] = current_snapshot
     state["schema_version"] = STATE_SCHEMA_VERSION
-    max_seen = max(int(config.get("max_seen_ids", 10000)), 1000)
-    if len(seen) > max_seen:
-        state["seen"] = dict(sorted(seen.items(), key=lambda item: item[1], reverse=True)[:max_seen])
     state["initialized"] = True
     # Avoid a needless state commit on every GitHub Actions run.
     if config.get("write_run_metadata", False):
         state.update({"last_success_utc": now, "last_fetched_count": len(coupons)})
     atomic_write_json(state_path, state)
-    print(f"Fetched {len(coupons)} coupons; {len(new_coupons)} new; {len(candidates)} notified.")
+    if is_first_run:
+        print(f"Fetched {len(coupons)} coupons; snapshot baseline initialized; {len(candidates)} notified.")
+    else:
+        print(
+            f"Fetched {len(coupons)} coupons; {len(added_keys)} added; "
+            f"{len(changed_keys)} changed; {len(removed_keys)} removed; {len(candidates)} notified."
+        )
     return 0
 
 
@@ -443,6 +526,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--dry-run", action="store_true", help="Fetch and print matches without sending or saving")
     parser.add_argument("--notify-existing", action="store_true", help="Notify matching coupons on first run")
     parser.add_argument("--test-webhook", action="store_true", help="Send a Discord connection test")
+    parser.add_argument("--force-daily-status", action="store_true", help="Send the daily no-new-coupon status now")
     parser.add_argument("--pages", type=int, help="Temporarily override the number of listing pages to scan")
     return parser
 

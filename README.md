@@ -7,9 +7,11 @@
 ## 主な機能
 
 - 全国の宿泊施設クーポンを指定検索条件で最終ページまで監視
+- 毎回の全件スナップショットから追加・内容変更・掲載終了を判定
 - 「クーポン額 ÷ 最低予約金額」が50%を超える新着だけ通知
 - 初回は既存クーポンを通知せず、監視対象として記録
 - クーポンIDと宿番号による重複通知防止
+- 新着通知がなかった日は21時以降にDiscordへ正常稼働を日次報告
 - Discord Embed通知
 - Python標準ライブラリのみで動作
 - じゃらん側のHTML変更で0件になった場合は異常終了し、誤って状態を更新しない
@@ -55,20 +57,20 @@ python3 jalan_coupon_bot.py --config config.json
 python3 jalan_coupon_bot.py --config config.json --notify-existing
 ```
 
-## 4. 10分おきに実行（cron）
+## 4. 1時間に3回実行（cron）
 
 プロジェクトの絶対パスが `/opt/jalan-coupon-watcher` の例です。`crontab -e` に追加します。
 
 ```cron
 DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/...
-*/10 * * * * cd /opt/jalan-coupon-watcher && /usr/bin/python3 jalan_coupon_bot.py --config config.json >> bot.log 2>&1
+7,27,47 * * * * cd /opt/jalan-coupon-watcher && /usr/bin/python3 jalan_coupon_bot.py --config config.json >> bot.log 2>&1
 ```
 
 Webhook URLをcrontabへ直接書きたくない場合は、権限を絞った環境ファイルやsystemd timerを使ってください。
 
 ## GitHub Actionsで常時実行
 
-`.github/workflows/monitor.yml` を同梱しています。ZIPを展開した中身をGitHubリポジトリ直下へアップロードすると、10分おきに自動実行できます。
+`.github/workflows/monitor.yml` を同梱しています。ZIPを展開した中身をGitHubリポジトリ直下へアップロードすると、毎時7分・27分・47分を目安に自動実行できます。
 
 1. GitHubで新しいリポジトリを作成します。
 2. ZIPを展開し、中身をリポジトリ直下へアップロードします。
@@ -78,9 +80,11 @@ Webhook URLをcrontabへ直接書きたくない場合は、権限を絞った�
 
 初回は現在のクーポンを記録するだけで通知しません。初回から通知したい場合は、手動実行画面で「初回から現在の該当クーポンを通知する」を有効にします。
 
-重複通知防止用の `data/state.json` は、変更があったときだけActionsが自動コミットします。リポジトリ設定でActionsの書き込みが禁止されている場合は、**Settings → Actions → General → Workflow permissions** を **Read and write permissions** に変更してください。
+日次報告をすぐ試す場合は、手動実行画面で「新着なしの日次報告を今すぐ送る」を有効にします。
 
-GitHubの定期実行は混雑時に遅れる場合があります。また、非公開リポジトリではActionsの月間無料枠を消費します。必要なら `monitor.yml` の `*/10` を `*/30` に変えると30分間隔になります。
+差分判定用の全件スナップショット `data/state.json` は、変更があったときだけActionsが自動コミットします。リポジトリ設定でActionsの書き込みが禁止されている場合は、**Settings → Actions → General → Workflow permissions** を **Read and write permissions** に変更してください。
+
+GitHubの定期実行は混雑時に遅れる場合があります。また、非公開リポジトリではActionsの月間無料枠を消費します。新着通知が一度もなかった日は、日本時間21時以降の最初の正常監視で「新しい該当クーポンなし」という日次報告を送ります。
 
 ## 設定
 
@@ -93,13 +97,14 @@ GitHubの定期実行は混雑時に遅れる場合があります。また、�
 | `match_mode` | `rate` | 割引率だけで通知判定 |
 | `pages_to_scan` | `0` | `0` は総件数から最終ページまで自動走査 |
 | `max_pages_to_scan` | `100` | 異常時の安全上限。必要ページ数が超えた場合は状態を更新せず終了 |
+| `daily_status_hour_jst` | `21` | 新着がなかった日の日次報告を開始する日本時間の時刻 |
 | `request_delay_seconds` | `2.0` | ページ間の待機秒数（最低1秒） |
 | `request_retry_count` | `3` | 空応答・通信エラー時のページ再試行回数 |
 | `retry_delay_seconds` | `3.0` | 再試行までの待機秒数 |
 | `write_run_metadata` | `false` | 実行時刻も状態へ保存するか。GitHubでは不要なコミットを避けるためfalse推奨 |
 | `state_file` | `data/state.json` | 重複通知防止データ |
 
-監視頻度は10分程度を推奨します。検索条件は各ページで維持され、ページ取得が1つでも完了しない場合は状態を更新しません。
+検索条件は各ページで維持され、ページ取得が1つでも完了しない場合は通知や状態更新を行いません。
 
 ## 注意
 

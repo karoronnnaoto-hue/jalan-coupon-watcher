@@ -1,6 +1,7 @@
 import sys
 import unittest
 from dataclasses import replace
+from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import patch
 
@@ -8,9 +9,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from jalan_coupon_bot import (
     DEFAULT_USER_AGENT,
+    build_snapshot,
     build_listing_url,
+    compare_snapshots,
     coupon_key,
+    daily_status_due,
     matches,
+    notify_daily_status,
     parse_coupons,
     parse_total_results,
     post_discord,
@@ -69,6 +74,20 @@ class ParserTests(unittest.TestCase):
         self.assertEqual(parse_total_results('<span>（1,000件中）</span>'), 1000)
         self.assertEqual(coupon_key(coupon), "COU123:456")
 
+    def test_full_snapshot_detects_added_changed_and_removed(self):
+        coupon = parse_coupons(FIXTURE)[0]
+        old_coupon = replace(coupon, discount_yen=8000)
+        removed_coupon = replace(coupon, coupon_id="COU999")
+        added_coupon = replace(coupon, coupon_id="COU456")
+        previous = build_snapshot([old_coupon, removed_coupon])
+        current = build_snapshot([coupon, added_coupon])
+
+        added, changed, removed = compare_snapshots(previous, current)
+
+        self.assertEqual(added, {"COU456:456"})
+        self.assertEqual(changed, {"COU123:456"})
+        self.assertEqual(removed, {"COU999:456"})
+
     def test_discord_request_uses_user_agent(self):
         class Response:
             def __enter__(self):
@@ -85,6 +104,32 @@ class ParserTests(unittest.TestCase):
 
         request = mocked_urlopen.call_args.args[0]
         self.assertEqual(request.get_header("User-agent"), DEFAULT_USER_AGENT)
+
+    def test_daily_status_is_due_once_after_21_jst(self):
+        before_report = datetime(2026, 9, 22, 11, 59, tzinfo=timezone.utc)
+        after_report = datetime(2026, 9, 22, 12, 0, tzinfo=timezone.utc)
+        self.assertFalse(daily_status_due({}, before_report, 21))
+        self.assertTrue(daily_status_due({}, after_report, 21))
+        self.assertFalse(
+            daily_status_due({"last_daily_status_jst": "2026-09-22"}, after_report, 21)
+        )
+
+    def test_daily_status_message_reports_no_new_coupon(self):
+        with patch("jalan_coupon_bot.post_discord") as mocked_post:
+            notify_daily_status(
+                "https://discord.example/webhook",
+                fetched_count=995,
+                matching_count=5,
+                added_count=0,
+                changed_count=0,
+                removed_count=3,
+                checked_at=datetime(2026, 9, 22, 12, 30, tzinfo=timezone.utc),
+            )
+
+        payload = mocked_post.call_args.args[1]
+        self.assertIn("現時点では新しい該当クーポンはありません", payload["content"])
+        self.assertIn("掲載: 995宿分 / 割引率50%超: 5件", payload["content"])
+        self.assertIn("追加 0 / 変更 0 / 掲載終了 3", payload["content"])
 
 
 if __name__ == "__main__":
