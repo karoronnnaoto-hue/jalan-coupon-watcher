@@ -22,12 +22,7 @@
 
 Python 3.10以上を用意します。
 
-```bash
-cp config.example.json config.json
-export DISCORD_WEBHOOK_URL='https://discord.com/api/webhooks/...'
-```
 
-Webhook URLはDiscordの「サーバー設定 → 連携サービス → ウェブフック」から作成できます。URLは秘密情報なので、`config.json`へ書かず環境変数で設定する方法を推奨します。
 
 ## 2. 動作確認
 
