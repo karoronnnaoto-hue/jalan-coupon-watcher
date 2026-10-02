@@ -233,6 +233,32 @@ def parse_total_results(page_html: str) -> int:
     return int(normalized.replace(",", ""))
 
 
+class JalanListingItemCounter(HTMLParser):
+    """Count every listing card, including coupons that cannot be acquired."""
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.count = 0
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag == "li" and "item" in _classes(attrs):
+            self.count += 1
+
+
+def parse_listing_page_size(page_html: str) -> int:
+    parser = JalanListingItemCounter()
+    parser.feed(page_html)
+    if parser.count < 1:
+        raise RuntimeError("Could not determine the listing page size")
+    return parser.count
+
+
+def calculate_listing_pages(page_html: str) -> int:
+    total_results = parse_total_results(page_html)
+    page_size = parse_listing_page_size(page_html)
+    return max(1, math.ceil(total_results / page_size))
+
+
 def fetch_page(page: int, timeout: int, user_agent: str) -> str:
     url = build_listing_url(page)
     request = Request(url, headers={"User-Agent": user_agent, "Accept-Language": "ja"})
@@ -274,8 +300,7 @@ def fetch_coupons(config: dict[str, Any]) -> list[Coupon]:
     collected: dict[str, Coupon] = {}
 
     first_html, first_page = _fetch_parsed_page(1, timeout, user_agent, attempts, retry_delay)
-    total_results = parse_total_results(first_html)
-    pages = max(1, math.ceil(total_results / len(first_page)))
+    pages = calculate_listing_pages(first_html)
     page_override = int(config.get("pages_to_scan", 0))
     if page_override > 0:
         pages = min(pages, page_override)
