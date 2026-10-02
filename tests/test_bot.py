@@ -11,12 +11,14 @@ from jalan_coupon_bot import (
     DEFAULT_USER_AGENT,
     build_snapshot,
     build_listing_url,
+    calculate_listing_pages,
     compare_snapshots,
     coupon_key,
     daily_status_due,
     matches,
     notify_daily_status,
     parse_coupons,
+    parse_listing_page_size,
     parse_total_results,
     post_discord,
 )
@@ -40,6 +42,16 @@ FIXTURE = """
   </li>
 </ul>
 """
+
+LISTING_PAGE_FIXTURE = (
+    '<span>（1,000件中）</span><ul class="cassetteList-list">'
+    + FIXTURE.split('<ul class="cassetteList-list">', 1)[1].rsplit("</ul>", 1)[0]
+    + "".join(
+        f'<li class="item"><h2 class="item-title">取得終了クーポン{i}</h2></li>'
+        for i in range(29)
+    )
+    + "</ul>"
+)
 
 
 class ParserTests(unittest.TestCase):
@@ -73,6 +85,11 @@ class ParserTests(unittest.TestCase):
         coupon = parse_coupons(FIXTURE)[0]
         self.assertEqual(parse_total_results('<span>（1,000件中）</span>'), 1000)
         self.assertEqual(coupon_key(coupon), "COU123:456")
+
+    def test_page_count_uses_all_listing_cards_not_parsed_coupons(self):
+        self.assertEqual(len(parse_coupons(LISTING_PAGE_FIXTURE)), 1)
+        self.assertEqual(parse_listing_page_size(LISTING_PAGE_FIXTURE), 30)
+        self.assertEqual(calculate_listing_pages(LISTING_PAGE_FIXTURE), 34)
 
     def test_full_snapshot_detects_added_changed_and_removed(self):
         coupon = parse_coupons(FIXTURE)[0]
