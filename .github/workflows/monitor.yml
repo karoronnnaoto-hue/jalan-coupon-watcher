@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       notify_existing:
-        description: "初回から現在の該当クーポンを通知する"
+        description: "現在の該当クーポンをすべて通知する（通知済みを含む）"
         required: false
         type: boolean
         default: false

@@ -4,6 +4,8 @@
   "match_mode": "rate",
   "pages_to_scan": 0,
   "max_pages_to_scan": 100,
+  "scan_passes": 2,
+  "missing_grace_runs": 3,
   "request_delay_seconds": 2.0,
   "request_timeout_seconds": 20,
   "request_retry_count": 3,

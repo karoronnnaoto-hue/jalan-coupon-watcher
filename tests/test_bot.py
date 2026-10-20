@@ -15,12 +15,16 @@ from jalan_coupon_bot import (
     compare_snapshots,
     coupon_key,
     daily_status_due,
+    fetch_coupons,
     matches,
+    notification_keys,
     notify_daily_status,
     parse_coupons,
     parse_listing_page_size,
     parse_total_results,
     post_discord,
+    select_notification_candidates,
+    stabilize_snapshot,
 )
 
 
@@ -104,6 +108,56 @@ class ParserTests(unittest.TestCase):
         self.assertEqual(added, {"COU456:456"})
         self.assertEqual(changed, {"COU123:456"})
         self.assertEqual(removed, {"COU999:456"})
+
+    def test_missing_coupon_is_removed_only_after_grace_runs(self):
+        previous = {"COU123:456": "signature"}
+
+        first, first_counts = stabilize_snapshot(previous, {}, {}, 3)
+        second, second_counts = stabilize_snapshot(previous, {}, first_counts, 3)
+        third, third_counts = stabilize_snapshot(previous, {}, second_counts, 3)
+
+        self.assertEqual(first, previous)
+        self.assertEqual(first_counts, {"COU123:456": 1})
+        self.assertEqual(second, previous)
+        self.assertEqual(second_counts, {"COU123:456": 2})
+        self.assertEqual(third, {})
+        self.assertEqual(third_counts, {})
+
+    def test_known_history_prevents_same_coupon_from_becoming_new_again(self):
+        coupon = parse_coupons(FIXTURE)[0]
+        snapshot = build_snapshot([coupon])
+
+        self.assertEqual(notification_keys(snapshot, snapshot), set())
+        changed = build_snapshot([replace(coupon, discount_yen=9500)])
+        self.assertEqual(notification_keys(snapshot, changed), {"COU123:456"})
+
+    def test_notify_existing_always_selects_current_matches(self):
+        coupon = parse_coupons(FIXTURE)[0]
+        config = {"minimum_discount_rate": 0.5, "match_mode": "rate"}
+
+        candidates = select_notification_candidates(
+            [coupon], set(), config, notify_existing=True, is_first_run=False
+        )
+
+        self.assertEqual(candidates, [coupon])
+
+    def test_multiple_scan_passes_are_unioned(self):
+        first = parse_coupons(FIXTURE)[0]
+        second = replace(first, coupon_id="COU456")
+        single_page_html = FIXTURE.replace("9,000円テストクーポン", "（1件中）")
+        config = {
+            "scan_passes": 2,
+            "pages_to_scan": 1,
+            "request_delay_seconds": 1,
+        }
+
+        with patch(
+            "jalan_coupon_bot._fetch_parsed_page",
+            side_effect=[(single_page_html, [first]), (single_page_html, [second])],
+        ), patch("jalan_coupon_bot.time.sleep"):
+            coupons = fetch_coupons(config)
+
+        self.assertEqual({coupon_key(coupon) for coupon in coupons}, {"COU123:456", "COU456:456"})
 
     def test_discord_request_uses_user_agent(self):
         class Response:

@@ -39,7 +39,7 @@ LISTING_PARAMS = {
     "activeSort": "2",
 }
 DEFAULT_USER_AGENT = "JalanCouponWatcher/1.0 (+personal, low-frequency monitor)"
-STATE_SCHEMA_VERSION = 3
+STATE_SCHEMA_VERSION = 4
 JST = timezone(timedelta(hours=9))
 
 
@@ -219,6 +219,46 @@ def compare_snapshots(
     return added, changed, removed
 
 
+def stabilize_snapshot(
+    previous: dict[str, str],
+    current: dict[str, str],
+    missing_counts: dict[str, int],
+    grace_runs: int,
+) -> tuple[dict[str, str], dict[str, int]]:
+    """Keep intermittently missing coupons until they miss several full scans."""
+    grace_runs = max(1, grace_runs)
+    stabilized = dict(current)
+    next_missing_counts: dict[str, int] = {}
+    for key, signature in previous.items():
+        if key in current:
+            continue
+        misses = max(0, int(missing_counts.get(key, 0))) + 1
+        if misses < grace_runs:
+            stabilized[key] = signature
+            next_missing_counts[key] = misses
+    return stabilized, next_missing_counts
+
+
+def notification_keys(known: dict[str, str], current: dict[str, str]) -> set[str]:
+    """Return newly seen coupons and coupons whose details changed."""
+    return {key for key, signature in current.items() if known.get(key) != signature}
+
+
+def select_notification_candidates(
+    coupons: Iterable[Coupon],
+    changed_keys: set[str],
+    config: dict[str, Any],
+    notify_existing: bool,
+    is_first_run: bool,
+) -> list[Coupon]:
+    selected = [coupon for coupon in coupons if matches(coupon, config)]
+    if notify_existing:
+        return selected
+    if is_first_run:
+        return []
+    return [coupon for coupon in selected if coupon_key(coupon) in changed_keys]
+
+
 def build_listing_url(page: int) -> str:
     params = {**LISTING_PARAMS, "pageIdx": max(1, page)}
     return f"{LISTING_URL}?{urlencode(params)}"
@@ -297,23 +337,31 @@ def fetch_coupons(config: dict[str, Any]) -> list[Coupon]:
     attempts = max(1, min(int(config.get("request_retry_count", 3)), 5))
     retry_delay = max(float(config.get("retry_delay_seconds", 3.0)), 1.0)
     max_pages = max(1, int(config.get("max_pages_to_scan", 100)))
+    scan_passes = max(1, min(int(config.get("scan_passes", 2)), 3))
     collected: dict[str, Coupon] = {}
 
-    first_html, first_page = _fetch_parsed_page(1, timeout, user_agent, attempts, retry_delay)
-    pages = calculate_listing_pages(first_html)
-    page_override = int(config.get("pages_to_scan", 0))
-    if page_override > 0:
-        pages = min(pages, page_override)
-    elif pages > max_pages:
-        raise RuntimeError(f"Listing requires {pages} pages, above max_pages_to_scan={max_pages}")
+    for scan_pass in range(scan_passes):
+        if scan_pass:
+            time.sleep(delay)
+        first_html, first_page = _fetch_parsed_page(
+            1, timeout, user_agent, attempts, retry_delay
+        )
+        pages = calculate_listing_pages(first_html)
+        page_override = int(config.get("pages_to_scan", 0))
+        if page_override > 0:
+            pages = min(pages, page_override)
+        elif pages > max_pages:
+            raise RuntimeError(
+                f"Listing requires {pages} pages, above max_pages_to_scan={max_pages}"
+            )
 
-    for coupon in first_page:
-        collected[coupon_key(coupon)] = coupon
-    for page in range(2, pages + 1):
-        time.sleep(delay)
-        _, parsed = _fetch_parsed_page(page, timeout, user_agent, attempts, retry_delay)
-        for coupon in parsed:
+        for coupon in first_page:
             collected[coupon_key(coupon)] = coupon
+        for page in range(2, pages + 1):
+            time.sleep(delay)
+            _, parsed = _fetch_parsed_page(page, timeout, user_agent, attempts, retry_delay)
+            for coupon in parsed:
+                collected[coupon_key(coupon)] = coupon
     return list(collected.values())
 
 
@@ -485,19 +533,41 @@ def run(args: argparse.Namespace) -> int:
         return 0
 
     state = load_json(state_path, {"initialized": False, "snapshot": {}})
-    schema_matches = state.get("schema_version") == STATE_SCHEMA_VERSION
     now_dt = datetime.now(timezone.utc)
     now = now_dt.isoformat()
-    is_first_run = not schema_matches or not bool(state.get("initialized"))
-    previous_snapshot: dict[str, str] = state.get("snapshot", {}) if schema_matches else {}
+    is_first_run = not bool(state.get("initialized"))
+    previous_snapshot = state.get("snapshot", {})
+    if not isinstance(previous_snapshot, dict):
+        previous_snapshot = {}
+    stored_known = state.get("known", {})
+    if state.get("schema_version") == STATE_SCHEMA_VERSION and isinstance(stored_known, dict):
+        known: dict[str, str] = dict(stored_known)
+    else:
+        # Migrate older initialized snapshots without re-notifying every coupon.
+        known = dict(previous_snapshot) if not is_first_run else {}
+    stored_missing_counts = state.get("missing_counts", {})
+    if not isinstance(stored_missing_counts, dict):
+        stored_missing_counts = {}
+
     current_snapshot = build_snapshot(coupons)
-    added_keys, changed_keys, removed_keys = compare_snapshots(previous_snapshot, current_snapshot)
-    changed_coupons = [
-        coupon for coupon in coupons if coupon_key(coupon) in added_keys | changed_keys
-    ]
-    candidates = [coupon for coupon in changed_coupons if matches(coupon, config)]
+    stable_snapshot, missing_counts = stabilize_snapshot(
+        previous_snapshot,
+        current_snapshot,
+        stored_missing_counts,
+        int(config.get("missing_grace_runs", 3)),
+    )
+    added_keys, changed_keys, removed_keys = compare_snapshots(
+        previous_snapshot, stable_snapshot
+    )
+    changed_from_known = notification_keys(known, current_snapshot)
+    candidates = select_notification_candidates(
+        coupons,
+        changed_from_known,
+        config,
+        args.notify_existing,
+        is_first_run,
+    )
     if is_first_run:
-        candidates = selected if args.notify_existing else []
         report_added_count = report_changed_count = report_removed_count = 0
     else:
         report_added_count = len(added_keys)
@@ -527,7 +597,10 @@ def run(args: argparse.Namespace) -> int:
         state["last_daily_status_jst"] = now_dt.astimezone(JST).date().isoformat()
 
     state.pop("seen", None)
-    state["snapshot"] = current_snapshot
+    known.update(current_snapshot)
+    state["snapshot"] = stable_snapshot
+    state["known"] = known
+    state["missing_counts"] = missing_counts
     state["schema_version"] = STATE_SCHEMA_VERSION
     state["initialized"] = True
     # Avoid a needless state commit on every GitHub Actions run.
@@ -549,7 +622,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--config", default="config.json", help="Path to JSON config (default: config.json)")
     parser.add_argument("--state", help="Override state file path")
     parser.add_argument("--dry-run", action="store_true", help="Fetch and print matches without sending or saving")
-    parser.add_argument("--notify-existing", action="store_true", help="Notify matching coupons on first run")
+    parser.add_argument(
+        "--notify-existing",
+        action="store_true",
+        help="Notify all current matches, including coupons already seen",
+    )
     parser.add_argument("--test-webhook", action="store_true", help="Send a Discord connection test")
     parser.add_argument("--force-daily-status", action="store_true", help="Send the daily no-new-coupon status now")
     parser.add_argument("--pages", type=int, help="Temporarily override the number of listing pages to scan")
