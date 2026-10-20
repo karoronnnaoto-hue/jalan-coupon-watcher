@@ -1,0 +1,158 @@
+import json
+import sys
+import tempfile
+import unittest
+from datetime import date, timedelta
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from jalan_hotel_price_bot import (
+    build_region_page_url,
+    discover_region_urls,
+    find_anomalies,
+    atomic_write_price_state,
+    load_price_state,
+    load_complete_shards,
+    parse_hotel_results,
+    parse_result_count,
+    shard_regions,
+    update_history,
+)
+
+
+FIXTURE = """
+<span class="jlnpc-listInformation--count">2</span>
+<li id="sa_yadNo999999" class="p-yadoCassette p-yadoCassette--pr js-searchResultItem">
+  <h2 class="js-yadName p-searchResultItem__facilityName">広告ホテル</h2>
+  <span class="p-searchResultItem__lowestPriceValue">100円～</span>
+</li>
+<li id="yadNo123456" class="p-yadoCassette p-searchResultItem js-searchResultItem">
+  <dd class="p-searchResultItem__areaValues">東京都 &gt; 新宿</dd>
+  <h2 class="js-yadName p-searchResultItem__facilityName"><a>テストホテル</a></h2>
+  <span class="p-searchResultItem__lowestPriceValue">19,000円～</span>
+</li>
+<li id="yadNo234567" class="p-yadoCassette p-searchResultItem js-searchResultItem">
+  <dd class="p-searchResultItem__areaValues">東京都 &gt; 渋谷</dd>
+  <h2 class="js-yadName p-searchResultItem__facilityName">料金未定ホテル</h2>
+</li>
+"""
+
+
+def observation(price: int = 1000) -> dict[str, dict]:
+    return {
+        "123456": {
+            "hotel_id": "123456",
+            "hotel_name": "テストホテル",
+            "prefecture": "東京都",
+            "area": "東京都 > 新宿",
+            "price_yen": price,
+            "detail_url": "https://www.jalan.net/yad123456/",
+        }
+    }
+
+
+def history_state(today: date, days: int, price: int = 10000) -> dict:
+    return {
+        "hotels": {
+            "123456": {
+                "prices": [
+                    {"date": (today - timedelta(days=offset)).isoformat(), "price_yen": price}
+                    for offset in range(1, days + 1)
+                ]
+            }
+        }
+    }
+
+
+class HotelPriceTests(unittest.TestCase):
+    def test_regular_cards_are_parsed_and_pr_is_ignored(self):
+        hotels = parse_hotel_results(FIXTURE, "東京都")
+        self.assertEqual([item.hotel_id for item in hotels], ["123456", "234567"])
+        self.assertEqual(hotels[0].hotel_name, "テストホテル")
+        self.assertEqual(hotels[0].area, "東京都 > 新宿")
+        self.assertEqual(hotels[0].price_yen, 19000)
+        self.assertIsNone(hotels[1].price_yen)
+
+    def test_result_count_and_region_discovery(self):
+        self.assertEqual(parse_result_count(FIXTURE), 2)
+        landing = '<a href="/130000/LRG_136200/">A</a><a href="/130000/LRG_136200/">A</a><a href="/130000/LRG_136500/">B</a>'
+        self.assertEqual(
+            discover_region_urls(landing, "130000"),
+            ["https://www.jalan.net/130000/LRG_136200/", "https://www.jalan.net/130000/LRG_136500/"],
+        )
+
+    def test_region_pagination_url(self):
+        first = build_region_page_url("https://www.jalan.net/130000/LRG_136200/", 1)
+        second = build_region_page_url("https://www.jalan.net/130000/LRG_136200/", 2)
+        self.assertIn("LRG_136200/?", first)
+        self.assertIn("LRG_136200/page2.html?", second)
+        self.assertIn("adultNum=2", second)
+        self.assertIn("dateUndecided=1", second)
+
+    def test_one_hundred_shards_cover_every_region_once(self):
+        regions = [
+            {"prefecture_code": "130000", "prefecture_name": "東京都", "region_url": f"https://example/{index}/"}
+            for index in range(237)
+        ]
+        assigned = [item for shard in range(100) for item in shard_regions(regions, shard, 100)]
+        self.assertCountEqual(assigned, regions)
+        self.assertEqual(len(assigned), len({item["region_url"] for item in assigned}))
+
+    def test_requires_thirty_consecutive_prior_days(self):
+        today = date(2026, 10, 20)
+        self.assertEqual(find_anomalies(observation(), history_state(today, 29), today, 30, 0.9), [])
+        anomalies = find_anomalies(observation(), history_state(today, 30), today, 30, 0.9)
+        self.assertEqual(len(anomalies), 1)
+        self.assertEqual(anomalies[0].median_yen, 10000)
+        self.assertAlmostEqual(anomalies[0].drop_rate, 0.9)
+
+    def test_missing_day_does_not_form_baseline(self):
+        today = date(2026, 10, 20)
+        state = history_state(today, 30)
+        state["hotels"]["123456"]["prices"].pop(5)
+        state["hotels"]["123456"]["prices"].append(
+            {"date": (today - timedelta(days=40)).isoformat(), "price_yen": 10000}
+        )
+        self.assertEqual(find_anomalies(observation(), state, today, 30, 0.9), [])
+
+    def test_history_replaces_same_day_and_keeps_thirty(self):
+        today = date(2026, 10, 20)
+        state = history_state(today + timedelta(days=1), 30)
+        update_history(state, observation(900), today, 30)
+        update_history(state, observation(800), today, 30)
+        prices = state["hotels"]["123456"]["prices"]
+        self.assertEqual(len(prices), 30)
+        self.assertEqual(prices[-1], {"date": today.isoformat(), "price_yen": 800})
+
+    def test_complete_shards_are_required(self):
+        with tempfile.TemporaryDirectory(dir=Path.cwd()) as directory:
+            root = Path(directory)
+            for index in range(2):
+                payload = {
+                    "schema_version": 1,
+                    "observed_date_jst": "2026-10-20",
+                    "shard_index": index,
+                    "shard_count": 2,
+                    "pages_fetched": 3,
+                    "hotels": {str(index): {"price_yen": 1000}},
+                }
+                (root / f"shard-{index}.json").write_text(json.dumps(payload), encoding="utf-8")
+            observed, hotels, pages = load_complete_shards(root, 2)
+            self.assertEqual(observed, date(2026, 10, 20))
+            self.assertEqual(len(hotels), 2)
+            self.assertEqual(pages, 6)
+            (root / "shard-1.json").unlink()
+            with self.assertRaises(RuntimeError):
+                load_complete_shards(root, 2)
+
+    def test_gzip_state_round_trip(self):
+        with tempfile.TemporaryDirectory(dir=Path.cwd()) as directory:
+            path = Path(directory) / "state.json.gz"
+            expected = {"schema_version": 1, "hotels": {"1": {"hotel_name": "宿"}}}
+            atomic_write_price_state(path, expected)
+            self.assertEqual(load_price_state(path), expected)
+
+
+if __name__ == "__main__":
+    unittest.main()

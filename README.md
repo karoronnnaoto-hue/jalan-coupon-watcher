@@ -19,6 +19,26 @@
 - Python標準ライブラリのみで動作
 - じゃらん側のHTML変更で0件になった場合は異常終了し、誤って状態を更新しない
 
+## ホテル料金の異常値監視
+
+`jalan_hotel_price_bot.py` は全国の宿の表示最低料金を毎日記録し、同じ宿の直前30日間の中央値より90%以上安い料金だけをDiscordへ通知します。プラン名の「OFF」表記や通常価格の推定は使いません。
+
+- 比較条件は毎日同じ「日付未定・1泊・1室・大人2名」
+- 全国の地域一覧を約100個の収集Botに均等分配して並列走査
+- 100個すべてが成功した場合だけ、1個の集約Botが履歴を更新して通知
+- 同じ宿について直前30日分が連続して揃うまでは学習期間として通知しない
+- 現在料金が30日中央値の10%以下（90%以上下落）なら通知
+- 広告枠を除外し、検索結果件数と通常宿カード数が一致しなければ異常終了
+- 初回の全国収集が成功した時だけ、取得件数を含む学習開始通知をDiscordへ送信
+
+東京都だけをローカル収集する場合:
+
+```bash
+python3 jalan_hotel_price_bot.py collect --config config.example.json --shard-index 0 --shard-count 100 --prefecture 130000 --output data/shards/tokyo.json
+```
+
+GitHub Actionsの `Monitor Jalan hotel price anomalies` は毎日03:37（日本時間）に起動します。100ジョブへの分担後、実際に同時実行される数はGitHubアカウントの上限に従います。初回から30回目までは価格履歴の蓄積だけを行い、31回目以降に異常値判定が始まります。
+
 既定値は「実質割引率が50%を超える」クーポンだけです。50%ちょうどは通知対象に含みません。
 
 ## 1. セットアップ
@@ -101,6 +121,14 @@ GitHubの定期実行は混雑時に遅れる場合があります。また、�
 | `max_regional_campaigns` | `100` | ご当地キャンペーン数の安全上限 |
 | `max_regional_detail_pages` | `200` | 地域クーポン詳細ページ数の安全上限 |
 | `regional_request_delay_seconds` | `1.0` | ご当地キャンペーンページ間の待機秒数（最低0.5秒） |
+| `hotel_price_drop_rate` | `0.9` | 30日中央値からの最低下落率（90%以上） |
+| `hotel_price_history_days` | `30` | 比較に必要な連続日次サンプル数 |
+| `hotel_price_parallel_shards` | `100` | 全国の地域を分担する収集Bot数 |
+| `hotel_price_request_delay_seconds` | `1.0` | 地域検索ページ間の待機秒数（最低0.5秒） |
+| `hotel_price_max_regions_per_prefecture` | `40` | 1都道府県の地域数に対する安全上限 |
+| `hotel_price_max_pages_per_region` | `50` | 1地域の検索ページ数に対する安全上限 |
+| `hotel_price_max_pages_per_shard` | `100` | 1収集Botの総ページ数に対する安全上限 |
+| `hotel_price_state_file` | `data/hotel_price_state.json.gz` | gzip圧縮した日次料金履歴と通知済み情報 |
 | `daily_status_hour_jst` | `21` | 新着がなかった日の日次報告を開始する日本時間の時刻 |
 | `request_delay_seconds` | `2.0` | ページ間の待機秒数（最低1秒） |
 | `request_retry_count` | `3` | 空応答・通信エラー時のページ再試行回数 |
