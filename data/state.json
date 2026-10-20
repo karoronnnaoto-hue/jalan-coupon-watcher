@@ -998,7 +998,9 @@
     "COU999999070025406411284:387731": "581e4b00a59e8ad446af3963f7ef0ca8f2c19eff58930f8853233a8f93124b95"
   },
   "last_daily_status_jst": "2026-10-19",
-  "missing_counts": {},
+  "missing_counts": {
+    "COU999999046806387681531:308664": 1
+  },
   "schema_version": 4,
   "snapshot": {
     "COU303895001350938572714:303895": "d0f81397e447dce25104777337ebee774bbc328696defa48e4753a4686f657b7",
