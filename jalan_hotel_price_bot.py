@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Collect Jalan hotel prices and alert on anomalies against 30 daily samples."""
+"""Collect Jalan hotel prices and alert on drops below the recorded minimum."""
 
 from __future__ import annotations
 
@@ -10,7 +10,6 @@ import json
 import math
 import os
 import re
-import statistics
 import sys
 import tempfile
 import time
@@ -113,7 +112,7 @@ class PriceAnomaly:
     prefecture: str
     area: str
     price_yen: int
-    median_yen: int
+    historical_min_yen: int
     drop_rate: float
     sample_count: int
     detail_url: str
@@ -524,7 +523,7 @@ def find_anomalies(
 ) -> list[PriceAnomaly]:
     anomalies: list[PriceAnomaly] = []
     state_hotels = state.get("hotels", {})
-    earliest = observed_date - timedelta(days=history_days)
+    earliest = observed_date - timedelta(days=history_days - 1)
     for hotel_id, current in observations.items():
         saved = state_hotels.get(hotel_id, {}) if isinstance(state_hotels, dict) else {}
         prices_by_date: dict[date, int] = {}
@@ -534,12 +533,12 @@ def find_anomalies(
                 sample_price = int(sample["price_yen"])
             except (KeyError, TypeError, ValueError):
                 continue
-            if earliest <= sample_date < observed_date and sample_price > 0:
-                prices_by_date[sample_date] = sample_price
-        required_dates = {observed_date - timedelta(days=offset) for offset in range(1, history_days + 1)}
-        if set(prices_by_date) != required_dates:
+            if earliest <= sample_date <= observed_date and sample_price > 0:
+                previous = prices_by_date.get(sample_date)
+                prices_by_date[sample_date] = sample_price if previous is None else min(previous, sample_price)
+        if not prices_by_date:
             continue
-        baseline = statistics.median(prices_by_date.values())
+        baseline = min(prices_by_date.values())
         current_price = int(current["price_yen"])
         drop_rate = 1 - (current_price / baseline)
         if drop_rate + 1e-12 < drop_rate_threshold:
@@ -551,13 +550,38 @@ def find_anomalies(
                 prefecture=str(current.get("prefecture", "")),
                 area=str(current.get("area", "")),
                 price_yen=current_price,
-                median_yen=round(baseline),
+                historical_min_yen=baseline,
                 drop_rate=drop_rate,
                 sample_count=len(prices_by_date),
                 detail_url=str(current.get("detail_url", "")),
             )
         )
     return sorted(anomalies, key=lambda item: (-item.drop_rate, item.price_yen, item.hotel_id))
+
+
+def count_comparable_hotels(
+    observations: dict[str, dict[str, Any]],
+    state: dict[str, Any],
+    observed_date: date,
+    history_days: int,
+) -> int:
+    state_hotels = state.get("hotels", {})
+    if not isinstance(state_hotels, dict):
+        return 0
+    earliest = observed_date - timedelta(days=history_days - 1)
+    count = 0
+    for hotel_id in observations:
+        saved = state_hotels.get(hotel_id, {})
+        for sample in saved.get("prices", []):
+            try:
+                sample_date = date.fromisoformat(str(sample["date"]))
+                sample_price = int(sample["price_yen"])
+            except (KeyError, TypeError, ValueError):
+                continue
+            if earliest <= sample_date <= observed_date and sample_price > 0:
+                count += 1
+                break
+    return count
 
 
 def update_history(
@@ -577,7 +601,9 @@ def update_history(
                 by_date[str(sample["date"])] = int(sample["price_yen"])
             except (KeyError, TypeError, ValueError):
                 continue
-        by_date[observed_date.isoformat()] = int(current["price_yen"])
+        day = observed_date.isoformat()
+        current_price = int(current["price_yen"])
+        by_date[day] = min(by_date.get(day, current_price), current_price)
         retained = sorted(by_date.items())[-history_days:]
         hotels[hotel_id] = {
             "hotel_name": str(current.get("hotel_name", "")),
@@ -617,7 +643,7 @@ def _anomaly_embed(item: PriceAnomaly) -> dict[str, Any]:
         "fields": [
             {"name": "エリア", "value": f"{item.prefecture} / {item.area or '不明'}", "inline": False},
             {"name": "現在の表示最低料金", "value": f"{item.price_yen:,}円", "inline": True},
-            {"name": "過去30日中央値", "value": f"{item.median_yen:,}円", "inline": True},
+            {"name": "直近30日の記録済み最低価格", "value": f"{item.historical_min_yen:,}円", "inline": True},
             {"name": "下落率", "value": f"{item.drop_rate:.1%}", "inline": True},
         ],
         "footer": {"text": "日付未定・1泊・1室・大人2名。予約前にじゃらん公式で条件と料金を確認してください"},
@@ -630,36 +656,42 @@ def notify_anomalies(webhook_url: str, anomalies: list[PriceAnomaly]) -> None:
         post_discord(
             webhook_url,
             {
-                "content": f"過去30日中央値より90%以上安いホテルを{len(chunk)}件検知しました。",
+                "content": f"記録済み最低価格より90%以上安いホテルを{len(chunk)}件検知しました。",
                 "username": "じゃらんホテル料金監視",
                 "embeds": [_anomaly_embed(item) for item in chunk],
             },
         )
 
 
-def notify_baseline_started(
+def notify_scan_summary(
     webhook_url: str,
-    observed_date: date,
+    completed_at: datetime,
     hotel_count: int,
     page_count: int,
     shard_count: int,
+    comparable_count: int,
+    anomaly_count: int,
+    notified_count: int,
 ) -> None:
     post_discord(
         webhook_url,
         {
-            "content": "全国ホテル料金の30日学習を開始しました。",
+            "content": f"全国ホテル料金チェック完了：大幅下落 {anomaly_count:,}件",
             "username": "じゃらんホテル料金監視",
             "embeds": [
                 {
-                    "title": "初回の全国料金収集が完了しました",
-                    "color": 0x1976D2,
+                    "title": "3時間ごとの全国チェック結果",
+                    "color": 0xE53935 if anomaly_count else 0x1976D2,
                     "fields": [
-                        {"name": "観測日", "value": observed_date.isoformat(), "inline": True},
+                        {"name": "確認時刻", "value": completed_at.strftime("%Y-%m-%d %H:%M JST"), "inline": True},
                         {"name": "取得宿数", "value": f"{hotel_count:,}軒", "inline": True},
+                        {"name": "比較できた宿", "value": f"{comparable_count:,}軒", "inline": True},
+                        {"name": "大幅下落", "value": f"{anomaly_count:,}件", "inline": True},
+                        {"name": "新規通知", "value": f"{notified_count:,}件", "inline": True},
                         {"name": "取得ページ数", "value": f"{page_count:,}ページ", "inline": True},
                         {"name": "収集Bot", "value": f"{shard_count}分割すべて完了", "inline": True},
                     ],
-                    "footer": {"text": "30日分が連続して揃った宿から90%以上の下落判定を開始します"},
+                    "footer": {"text": "日付未定・1泊・1室・大人2名。直近30日の記録済み最低価格と比較"},
                 }
             ],
         },
@@ -705,37 +737,47 @@ def run_aggregate(args: argparse.Namespace, config: dict[str, Any]) -> int:
     observed_date, observations, total_pages = load_complete_shards(Path(args.input_dir), expected_count)
     state_path = Path(args.state or config.get("hotel_price_state_file", "data/hotel_price_state.json.gz"))
     state = load_price_state(state_path)
-    initial_collection = not bool(state.get("hotels"))
     anomalies = find_anomalies(observations, state, observed_date, history_days, threshold)
+    comparable_count = count_comparable_hotels(observations, state, observed_date, history_days)
     notified = state.get("notified", {})
     if not isinstance(notified, dict):
         notified = {}
     pending = []
     for item in anomalies:
-        signature = f"{observed_date.isoformat()}:{item.price_yen}:{item.median_yen}"
+        signature = f"{observed_date.isoformat()}:{item.price_yen}:{item.historical_min_yen}"
         if notified.get(item.hotel_id) != signature:
             pending.append(item)
 
     webhook_url = os.environ.get("DISCORD_WEBHOOK_URL", "").strip()
+    if not args.dry_run and not webhook_url:
+        raise RuntimeError("DISCORD_WEBHOOK_URL is required for scan summaries")
     if pending and not args.dry_run:
-        if not webhook_url:
-            raise RuntimeError("DISCORD_WEBHOOK_URL is required when anomalies need notification")
         notify_anomalies(webhook_url, pending)
         for item in pending:
-            notified[item.hotel_id] = f"{observed_date.isoformat()}:{item.price_yen}:{item.median_yen}"
-    if initial_collection and not args.dry_run:
-        if not webhook_url:
-            raise RuntimeError("DISCORD_WEBHOOK_URL is required for the initial baseline notification")
-        notify_baseline_started(webhook_url, observed_date, len(observations), total_pages, expected_count)
+            notified[item.hotel_id] = f"{observed_date.isoformat()}:{item.price_yen}:{item.historical_min_yen}"
+    completed_at = datetime.now(JST)
+    if not args.dry_run:
+        notify_scan_summary(
+            webhook_url,
+            completed_at,
+            len(observations),
+            total_pages,
+            expected_count,
+            comparable_count,
+            len(anomalies),
+            len(pending),
+        )
     state["notified"] = notified
     update_history(state, observations, observed_date, history_days)
     state["last_run"] = {
         "observed_date_jst": observed_date.isoformat(),
+        "completed_at_jst": completed_at.isoformat(),
         "hotel_count": len(observations),
         "pages_fetched": total_pages,
         "anomaly_count": len(anomalies),
         "notified_count": 0 if args.dry_run else len(pending),
-        "baseline_status_notified": initial_collection and not args.dry_run,
+        "comparable_hotel_count": comparable_count,
+        "summary_notified": not args.dry_run,
     }
     if not args.dry_run:
         atomic_write_price_state(state_path, state)

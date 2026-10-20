@@ -2,18 +2,21 @@ import json
 import sys
 import tempfile
 import unittest
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from jalan_hotel_price_bot import (
     build_region_page_url,
+    count_comparable_hotels,
     discover_region_urls,
     find_anomalies,
     atomic_write_price_state,
     load_price_state,
     load_complete_shards,
+    notify_scan_summary,
     parse_hotel_results,
     parse_result_count,
     shard_regions,
@@ -99,28 +102,36 @@ class HotelPriceTests(unittest.TestCase):
         self.assertCountEqual(assigned, regions)
         self.assertEqual(len(assigned), len({item["region_url"] for item in assigned}))
 
-    def test_requires_thirty_consecutive_prior_days(self):
+    def test_detects_drop_below_recorded_minimum_after_one_sample(self):
         today = date(2026, 10, 20)
-        self.assertEqual(find_anomalies(observation(), history_state(today, 29), today, 30, 0.9), [])
-        anomalies = find_anomalies(observation(), history_state(today, 30), today, 30, 0.9)
+        state = history_state(today, 1)
+        anomalies = find_anomalies(observation(), state, today, 30, 0.9)
         self.assertEqual(len(anomalies), 1)
-        self.assertEqual(anomalies[0].median_yen, 10000)
+        self.assertEqual(anomalies[0].historical_min_yen, 10000)
         self.assertAlmostEqual(anomalies[0].drop_rate, 0.9)
+        self.assertEqual(count_comparable_hotels(observation(), state, today, 30), 1)
 
-    def test_missing_day_does_not_form_baseline(self):
+    def test_uses_lowest_recorded_price_and_ignores_expired_history(self):
         today = date(2026, 10, 20)
-        state = history_state(today, 30)
-        state["hotels"]["123456"]["prices"].pop(5)
-        state["hotels"]["123456"]["prices"].append(
-            {"date": (today - timedelta(days=40)).isoformat(), "price_yen": 10000}
-        )
+        state = history_state(today, 2, 10000)
+        state["hotels"]["123456"]["prices"][0]["price_yen"] = 5000
         self.assertEqual(find_anomalies(observation(), state, today, 30, 0.9), [])
+        expired = {
+            "hotels": {
+                "123456": {
+                    "prices": [{"date": (today - timedelta(days=40)).isoformat(), "price_yen": 10000}]
+                }
+            }
+        }
+        self.assertEqual(find_anomalies(observation(), expired, today, 30, 0.9), [])
+        self.assertEqual(count_comparable_hotels(observation(), expired, today, 30), 0)
 
-    def test_history_replaces_same_day_and_keeps_thirty(self):
+    def test_history_keeps_same_day_minimum_and_thirty_days(self):
         today = date(2026, 10, 20)
         state = history_state(today + timedelta(days=1), 30)
         update_history(state, observation(900), today, 30)
         update_history(state, observation(800), today, 30)
+        update_history(state, observation(850), today, 30)
         prices = state["hotels"]["123456"]["prices"]
         self.assertEqual(len(prices), 30)
         self.assertEqual(prices[-1], {"date": today.isoformat(), "price_yen": 800})
@@ -152,6 +163,24 @@ class HotelPriceTests(unittest.TestCase):
             expected = {"schema_version": 1, "hotels": {"1": {"hotel_name": "宿"}}}
             atomic_write_price_state(path, expected)
             self.assertEqual(load_price_state(path), expected)
+
+    def test_scan_summary_reports_counts(self):
+        with patch("jalan_hotel_price_bot.post_discord") as post:
+            notify_scan_summary(
+                "https://example.test/webhook",
+                datetime(2026, 10, 20, 21, 17, tzinfo=timezone(timedelta(hours=9))),
+                23451,
+                991,
+                100,
+                23000,
+                2,
+                2,
+            )
+        payload = post.call_args.args[1]
+        self.assertIn("大幅下落 2件", payload["content"])
+        fields = payload["embeds"][0]["fields"]
+        self.assertIn({"name": "取得宿数", "value": "23,451軒", "inline": True}, fields)
+        self.assertIn({"name": "比較できた宿", "value": "23,000軒", "inline": True}, fields)
 
 
 if __name__ == "__main__":

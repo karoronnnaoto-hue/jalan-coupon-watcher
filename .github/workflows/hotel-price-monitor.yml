@@ -2,8 +2,8 @@ name: Monitor Jalan hotel price anomalies
 
 on:
   schedule:
-    # 03:37 JST. GitHub runs up to the account's available parallel capacity.
-    - cron: "37 18 * * *"
+    # Every three hours, at :17. GitHub runs up to the account's available parallel capacity.
+    - cron: "17 */3 * * *"
   workflow_dispatch:
 
 permissions:
