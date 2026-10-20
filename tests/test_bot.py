@@ -1,4 +1,5 @@
 import sys
+import json
 import unittest
 from dataclasses import replace
 from datetime import datetime, timezone
@@ -9,6 +10,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from jalan_coupon_bot import (
     DEFAULT_USER_AGENT,
+    _decode_response,
+    _is_jalan_url,
+    _is_valid_http_url,
     build_snapshot,
     build_listing_url,
     calculate_listing_pages,
@@ -16,10 +20,13 @@ from jalan_coupon_bot import (
     coupon_key,
     daily_status_due,
     fetch_coupons,
+    fetch_regional_coupons,
     matches,
     notification_keys,
     notify_daily_status,
     parse_coupons,
+    parse_regional_campaign_links,
+    parse_regional_coupons,
     parse_listing_page_size,
     parse_total_results,
     post_discord,
@@ -57,6 +64,32 @@ LISTING_PAGE_FIXTURE = (
     + "</ul>"
 )
 
+REGIONAL_FIXTURE = """
+<div class="couponBox">
+  <h4 class="couponUseTarget">長崎県五島市（対象施設のみ）</h4>
+  <span class="couponBoxMainBannerText__discount">10,000</span>
+  <span class="couponBoxText__couponTitle">五島市1万円クーポン</span>
+  <table><tr><td>配布期間</td><td>2026年10月1日～2026年10月31日</td></tr>
+  <tr><td>予約期間</td><td>2026年10月1日～2026年10月31日</td></tr>
+  <tr><td>宿泊<br>対象期間</td><td>2026年10月1日～2027年1月31日</td></tr>
+  <tr><td>利用条件</td><td>【予約金額】10,000円(税込)以上</td></tr>
+  <tr><td>クーポンID</td><td>COU-REGIONAL-1</td></tr></table>
+</div>
+<div class="couponBox couponBox-endDistribute">
+  <h4 class="couponUseTarget">終了地域</h4>
+  <span class="couponBoxMainBannerText__discount">20,000</span>
+  <span class="couponBoxText__couponTitle">終了済み</span>
+  <table><tr><td>利用条件</td><td>【予約金額】20,000円(税込)以上</td></tr>
+  <tr><td>クーポンID</td><td>COU-ENDED</td></tr></table>
+</div>
+"""
+
+REGIONAL_LANDING_FIXTURE = """
+<a href="https://tracking.example/coupon"><img alt="ふるさとお得クーポン"></a>
+<a href="https://tracking.example/hotel"><img alt="対象宿を見る"></a>
+<a href="/discountCoupon/CAM999/"><span>クーポンを獲得</span></a>
+"""
+
 
 class ParserTests(unittest.TestCase):
     def test_parse_coupon(self):
@@ -76,6 +109,76 @@ class ParserTests(unittest.TestCase):
         self.assertTrue(matches(coupon, config))
         self.assertFalse(matches(replace(coupon, discount_yen=5000), config))
         self.assertFalse(matches(replace(coupon, discount_yen=4900), config))
+
+    def test_parse_active_regional_coupon_and_skip_ended_coupon(self):
+        coupons = parse_regional_coupons(
+            REGIONAL_FIXTURE, "https://www.jalan.net/discountCoupon/CAM999/"
+        )
+
+        self.assertEqual(len(coupons), 1)
+        coupon = coupons[0]
+        self.assertEqual(coupon.coupon_id, "COU-REGIONAL-1")
+        self.assertEqual(coupon.yad_no, "CAM999")
+        self.assertEqual(coupon.hotel, "長崎県五島市（対象施設のみ）")
+        self.assertEqual(coupon.minimum_reservation_yen, 10000)
+        self.assertEqual(coupon.discount_yen, 10000)
+        self.assertTrue(coupon.title.startswith("【地域クーポン】"))
+
+    def test_windows_31j_response_uses_cp932_decoder(self):
+        text = "地域クーポン"
+        self.assertEqual(_decode_response(text.encode("cp932"), "windows-31j"), text)
+
+    def test_invalid_placeholder_redirect_is_rejected(self):
+        self.assertFalse(_is_valid_http_url("https://www./"))
+        self.assertTrue(_is_valid_http_url("https://www.jalan.net/discountCoupon/CAM999/"))
+        self.assertTrue(_is_jalan_url("https://www.jalan.net/discountCoupon/CAM999/"))
+        self.assertFalse(_is_jalan_url("https://example.com/discountCoupon/CAM999/"))
+
+    def test_regional_campaign_links_only_include_coupon_links(self):
+        links = parse_regional_campaign_links(
+            REGIONAL_LANDING_FIXTURE, "https://www.jalan.net/campaign/"
+        )
+
+        self.assertEqual(
+            links,
+            [
+                "https://tracking.example/coupon",
+                "https://www.jalan.net/discountCoupon/CAM999/",
+            ],
+        )
+
+    def test_new_regional_campaign_is_discovered_from_official_index(self):
+        index_json = json.dumps(
+            {
+                "cassettesData": [
+                    {
+                        "flgCoupon": "1",
+                        "couponUrl": "https://tracking.example/new-campaign",
+                    }
+                ]
+            }
+        )
+        landing_html = (
+            '<a href="https://tracking.example/new-coupon">'
+            '<img alt="新しい地域クーポン"></a>'
+        )
+        responses = [
+            ("https://www.jalan.net/index.json", index_json),
+            ("https://www.jalan.net/new-campaign", landing_html),
+            ("https://www.jalan.net/discountCoupon/CAMNEW/", REGIONAL_FIXTURE),
+        ]
+
+        with patch("jalan_coupon_bot._fetch_text_url", side_effect=responses), patch(
+            "jalan_coupon_bot._resolve_tracking_url",
+            side_effect=[
+                "https://www.jalan.net/new-campaign",
+                "https://www.jalan.net/discountCoupon/CAMNEW/",
+            ],
+        ), patch("jalan_coupon_bot.time.sleep"):
+            coupons = fetch_regional_coupons({})
+
+        self.assertEqual(len(coupons), 1)
+        self.assertEqual(coupons[0].yad_no, "CAMNEW")
 
     def test_listing_url_preserves_search_filters(self):
         url = build_listing_url(7)
@@ -199,7 +302,7 @@ class ParserTests(unittest.TestCase):
 
         payload = mocked_post.call_args.args[1]
         self.assertIn("現時点では新しい該当クーポンはありません", payload["content"])
-        self.assertIn("掲載: 995宿分 / 割引率50%超: 5件", payload["content"])
+        self.assertIn("取得: 995件 / 割引率50%超: 5件", payload["content"])
         self.assertIn("追加 0 / 変更 0 / 掲載終了 3", payload["content"])
 
 

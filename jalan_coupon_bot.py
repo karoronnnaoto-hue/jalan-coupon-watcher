@@ -23,12 +23,15 @@ from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any, Iterable
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlencode, urljoin
-from urllib.request import Request, urlopen
+from urllib.parse import urlencode, urljoin, urlparse
+from urllib.request import HTTPRedirectHandler, Request, build_opener, urlopen
 
 
 BASE_URL = "https://www.jalan.net"
 LISTING_URL = f"{BASE_URL}/jalancponsum/zenkoku/"
+REGIONAL_INDEX_URL = (
+    f"{BASE_URL}/theme/furusato_coupon/data/furusato_coupon.js"
+)
 LISTING_PARAMS = {
     "screenId": "UWW7862",
     "searchType": "2",
@@ -195,6 +198,150 @@ def parse_coupons(page_html: str) -> list[Coupon]:
     return parser.coupons
 
 
+class RegionalCouponParser(HTMLParser):
+    """Parse active regional coupons from a public campaign detail page."""
+
+    def __init__(self, detail_url: str) -> None:
+        super().__init__(convert_charrefs=True)
+        self.detail_url = detail_url
+        self.coupons: list[Coupon] = []
+        self._item: dict[str, Any] | None = None
+        self._div_depth = 0
+        self._capture: str | None = None
+        self._buffer: list[str] = []
+        self._row_cells: list[str] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        classes = _classes(attrs)
+        if self._item is None:
+            if tag == "div" and "couponBox" in classes:
+                self._item = {
+                    "ended": any(value.startswith("couponBox-end") for value in classes),
+                    "fields": {},
+                }
+                self._div_depth = 1
+            return
+
+        if tag == "div":
+            self._div_depth += 1
+        if tag == "h4" and "couponUseTarget" in classes:
+            self._start_capture("area")
+        elif tag == "span" and "couponBoxMainBannerText__discount" in classes:
+            self._start_capture("discount")
+        elif tag == "span" and "couponBoxText__couponTitle" in classes:
+            self._start_capture("title")
+        elif tag == "tr":
+            self._row_cells = []
+        elif tag == "td":
+            self._start_capture("td")
+
+    def handle_data(self, data: str) -> None:
+        if self._item is not None and self._capture:
+            self._buffer.append(data)
+
+    def handle_endtag(self, tag: str) -> None:
+        if self._item is None:
+            return
+        if tag in {"h4", "span"} and self._capture in {"area", "discount", "title"}:
+            capture = self._capture
+            self._item[capture] = self._finish_capture()
+        elif tag == "td" and self._capture == "td":
+            self._row_cells.append(self._finish_capture())
+        elif tag == "tr":
+            if len(self._row_cells) >= 2:
+                label = _clean(self._row_cells[0])
+                self._item["fields"][label] = _clean(" ".join(self._row_cells[1:]))
+            self._row_cells = []
+        elif tag == "div":
+            self._div_depth -= 1
+            if self._div_depth == 0:
+                self._finish_item()
+
+    def _start_capture(self, kind: str) -> None:
+        self._capture = kind
+        self._buffer = []
+
+    def _finish_capture(self) -> str:
+        value = _clean("".join(self._buffer))
+        self._capture = None
+        self._buffer = []
+        return value
+
+    def _finish_item(self) -> None:
+        assert self._item is not None
+        fields = self._item["fields"]
+        coupon_id = fields.get("クーポンID", "")
+        discount = _yen(f"{self._item.get('discount', '')}円")
+        condition = fields.get("利用条件", "")
+        area = self._item.get("area", "")
+        campaign_match = re.search(r"/discountCoupon/([^/?#]+)", self.detail_url)
+        campaign_id = campaign_match.group(1) if campaign_match else "regional"
+        if not self._item.get("ended") and coupon_id and discount is not None:
+            self.coupons.append(
+                Coupon(
+                    coupon_id=coupon_id,
+                    yad_no=campaign_id,
+                    title=f"【地域クーポン】{self._item.get('title', '')}",
+                    hotel=area or "地域クーポン",
+                    area=area,
+                    distribution_period=fields.get("配布期間", ""),
+                    reservation_period=fields.get("予約期間", ""),
+                    stay_period=fields.get("宿泊対象期間", ""),
+                    minimum_reservation_yen=_yen(condition),
+                    discount_yen=discount,
+                    detail_url=self.detail_url,
+                    calendar_url="",
+                )
+            )
+        self._item = None
+        self._capture = None
+        self._buffer = []
+        self._row_cells = []
+
+
+def parse_regional_coupons(page_html: str, detail_url: str) -> list[Coupon]:
+    parser = RegionalCouponParser(detail_url)
+    parser.feed(page_html)
+    return parser.coupons
+
+
+class RegionalCampaignLinkParser(HTMLParser):
+    """Find coupon links advertised by a regional campaign landing page."""
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.links: list[str] = []
+        self._href = ""
+        self._text: list[str] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        attrs_dict = dict(attrs)
+        if tag == "a":
+            self._href = attrs_dict.get("href") or ""
+            self._text = []
+        elif tag == "img" and self._href:
+            self._text.append(attrs_dict.get("alt") or "")
+
+    def handle_data(self, data: str) -> None:
+        if self._href:
+            self._text.append(data)
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag != "a" or not self._href:
+            return
+        label = _clean("".join(self._text))
+        if "クーポン" in label or "/discountCoupon/" in self._href:
+            self.links.append(self._href)
+        self._href = ""
+        self._text = []
+
+
+def parse_regional_campaign_links(page_html: str, page_url: str) -> list[str]:
+    parser = RegionalCampaignLinkParser()
+    parser.feed(page_html)
+    return list(dict.fromkeys(urljoin(page_url, link) for link in parser.links))
+
+
 def coupon_key(coupon: Coupon) -> str:
     return f"{coupon.coupon_id}:{coupon.yad_no}"
 
@@ -308,6 +455,92 @@ def fetch_page(page: int, timeout: int, user_agent: str) -> str:
     return raw.decode("cp932", errors="replace")
 
 
+def _decode_response(raw: bytes, declared_charset: str | None) -> str:
+    if declared_charset:
+        encoding = {
+            "windows-31j": "cp932",
+            "ms932": "cp932",
+            "x-sjis": "cp932",
+        }.get(declared_charset.lower(), declared_charset)
+        try:
+            return raw.decode(encoding, errors="replace")
+        except LookupError:
+            pass
+    head = raw[:4096].decode("ascii", errors="ignore")
+    match = re.search(r"charset\s*=\s*['\"]?([A-Za-z0-9._-]+)", head, re.IGNORECASE)
+    encoding = match.group(1) if match else "utf-8"
+    return raw.decode(encoding, errors="replace")
+
+
+def _fetch_text_url(
+    url: str,
+    timeout: int,
+    user_agent: str,
+    attempts: int,
+    retry_delay: float,
+) -> tuple[str, str]:
+    last_error: Exception | None = None
+    for attempt in range(attempts):
+        try:
+            request = Request(url, headers={"User-Agent": user_agent, "Accept-Language": "ja"})
+            with urlopen(request, timeout=timeout) as response:
+                raw = response.read()
+                final_url = response.geturl()
+                charset = response.headers.get_content_charset()
+            if raw:
+                return final_url, _decode_response(raw, charset)
+            last_error = RuntimeError(f"Empty response from {url}")
+        except (HTTPError, URLError, OSError) as exc:
+            last_error = exc
+        if attempt + 1 < attempts:
+            time.sleep(retry_delay)
+    raise RuntimeError(f"Failed to read {url} after {attempts} attempts: {last_error}")
+
+
+class _NoRedirectHandler(HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+def _is_valid_http_url(url: str) -> bool:
+    parsed = urlparse(url)
+    hostname = (parsed.hostname or "").strip(".")
+    return parsed.scheme in {"http", "https"} and "." in hostname
+
+
+def _is_jalan_url(url: str) -> bool:
+    hostname = (urlparse(url).hostname or "").lower()
+    return hostname == "jalan.net" or hostname.endswith(".jalan.net")
+
+
+def _resolve_tracking_url(
+    url: str,
+    timeout: int,
+    user_agent: str,
+    attempts: int,
+    retry_delay: float,
+) -> str:
+    if urlparse(url).hostname != "m.recruit.co.jp":
+        return url
+    opener = build_opener(_NoRedirectHandler())
+    last_error: Exception | None = None
+    for attempt in range(attempts):
+        try:
+            request = Request(url, headers={"User-Agent": user_agent, "Accept-Language": "ja"})
+            with opener.open(request, timeout=timeout) as response:
+                return response.geturl()
+        except HTTPError as exc:
+            if 300 <= exc.code < 400 and exc.headers.get("Location"):
+                target = urljoin(url, exc.headers["Location"])
+                return target if _is_valid_http_url(target) else ""
+            last_error = exc
+        except (URLError, OSError) as exc:
+            last_error = exc
+        if attempt + 1 < attempts:
+            time.sleep(retry_delay)
+    raise RuntimeError(f"Failed to resolve {url} after {attempts} attempts: {last_error}")
+
+
 def _fetch_parsed_page(
     page: int,
     timeout: int,
@@ -330,7 +563,7 @@ def _fetch_parsed_page(
     raise RuntimeError(f"Failed to read coupon page {page} after {attempts} attempts: {last_error}")
 
 
-def fetch_coupons(config: dict[str, Any]) -> list[Coupon]:
+def fetch_hotel_coupons(config: dict[str, Any]) -> list[Coupon]:
     delay = max(float(config.get("request_delay_seconds", 2.0)), 1.0)
     timeout = max(int(config.get("request_timeout_seconds", 20)), 5)
     user_agent = str(config.get("user_agent") or DEFAULT_USER_AGENT)
@@ -362,6 +595,83 @@ def fetch_coupons(config: dict[str, Any]) -> list[Coupon]:
             _, parsed = _fetch_parsed_page(page, timeout, user_agent, attempts, retry_delay)
             for coupon in parsed:
                 collected[coupon_key(coupon)] = coupon
+    return list(collected.values())
+
+
+def fetch_regional_coupons(config: dict[str, Any]) -> list[Coupon]:
+    delay = max(float(config.get("regional_request_delay_seconds", 1.0)), 0.5)
+    timeout = max(int(config.get("request_timeout_seconds", 20)), 5)
+    user_agent = str(config.get("user_agent") or DEFAULT_USER_AGENT)
+    attempts = max(1, min(int(config.get("request_retry_count", 3)), 5))
+    retry_delay = max(float(config.get("retry_delay_seconds", 3.0)), 1.0)
+    max_campaigns = max(1, int(config.get("max_regional_campaigns", 100)))
+    max_detail_pages = max(1, int(config.get("max_regional_detail_pages", 200)))
+
+    _, index_text = _fetch_text_url(
+        REGIONAL_INDEX_URL, timeout, user_agent, attempts, retry_delay
+    )
+    try:
+        payload = json.loads(index_text)
+        cards = payload["cassettesData"]
+    except (KeyError, TypeError, json.JSONDecodeError) as exc:
+        raise RuntimeError("Could not parse the regional coupon index") from exc
+    campaigns = [
+        str(card.get("couponUrl", ""))
+        for card in cards
+        if isinstance(card, dict)
+        and card.get("flgCoupon") == "1"
+        and card.get("couponUrl")
+    ]
+    campaigns = list(dict.fromkeys(campaigns))
+    if len(campaigns) > max_campaigns:
+        raise RuntimeError(
+            f"Regional index contains {len(campaigns)} campaigns, "
+            f"above max_regional_campaigns={max_campaigns}"
+        )
+
+    detail_pages: dict[str, str] = {}
+    for campaign_url in campaigns:
+        time.sleep(delay)
+        campaign_url = _resolve_tracking_url(
+            campaign_url, timeout, user_agent, attempts, retry_delay
+        )
+        if not campaign_url or not _is_jalan_url(campaign_url):
+            continue
+        final_url, campaign_html = _fetch_text_url(
+            campaign_url, timeout, user_agent, attempts, retry_delay
+        )
+        if "/discountCoupon/" in final_url:
+            detail_pages[final_url] = campaign_html
+            continue
+        for link in parse_regional_campaign_links(campaign_html, final_url):
+            time.sleep(delay)
+            link = _resolve_tracking_url(link, timeout, user_agent, attempts, retry_delay)
+            if not link or not _is_jalan_url(link):
+                continue
+            detail_url, detail_html = _fetch_text_url(
+                link, timeout, user_agent, attempts, retry_delay
+            )
+            if "/discountCoupon/" in detail_url:
+                detail_pages[detail_url] = detail_html
+                if len(detail_pages) > max_detail_pages:
+                    raise RuntimeError(
+                        f"Regional scan found more than {max_detail_pages} detail pages"
+                    )
+
+    collected: dict[str, Coupon] = {}
+    for detail_url, detail_html in detail_pages.items():
+        for coupon in parse_regional_coupons(detail_html, detail_url):
+            collected[coupon_key(coupon)] = coupon
+    return list(collected.values())
+
+
+def fetch_coupons(config: dict[str, Any]) -> list[Coupon]:
+    collected = {
+        coupon_key(coupon): coupon for coupon in fetch_hotel_coupons(config)
+    }
+    if config.get("include_regional_coupons", False):
+        for coupon in fetch_regional_coupons(config):
+            collected[coupon_key(coupon)] = coupon
     return list(collected.values())
 
 
@@ -411,8 +721,9 @@ def _embed(coupon: Coupon, anomaly_rate: float) -> dict[str, Any]:
     rate = coupon.discount_rate
     is_anomaly = rate is not None and rate >= anomaly_rate
     heading = "🚨 高割引率" if is_anomaly else "🎫 条件の良い新着"
+    subject_label = "対象地域" if coupon.yad_no.startswith("CAM") else "宿泊施設"
     fields = [
-        {"name": "宿泊施設", "value": coupon.hotel or "不明", "inline": False},
+        {"name": subject_label, "value": coupon.hotel or "不明", "inline": False},
         {"name": "エリア", "value": coupon.area or "不明", "inline": True},
         {"name": "クーポン額", "value": _fmt_yen(coupon.discount_yen), "inline": True},
         {"name": "最低予約金額", "value": _fmt_yen(coupon.minimum_reservation_yen), "inline": True},
@@ -491,7 +802,7 @@ def notify_daily_status(
                 "✅ じゃらんクーポン監視は正常です。\n"
                 "現時点では新しい該当クーポンはありません。\n"
                 f"確認時刻: {checked_at_jst:%Y-%m-%d %H:%M} JST\n"
-                f"掲載: {fetched_count:,}宿分 / 割引率50%超: {matching_count:,}件\n"
+                f"取得: {fetched_count:,}件 / 割引率50%超: {matching_count:,}件\n"
                 f"前回差分: 追加 {added_count:,} / 変更 {changed_count:,} / 掲載終了 {removed_count:,}"
             ),
             "username": "じゃらんクーポン監視",
