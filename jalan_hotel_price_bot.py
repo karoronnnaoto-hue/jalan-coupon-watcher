@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import gzip
 import html
 import json
@@ -514,6 +515,57 @@ def atomic_write_price_state(path: Path, value: dict[str, Any]) -> None:
             os.unlink(tmp_name)
 
 
+def export_facilities_csv(state: dict[str, Any], output_path: Path) -> int:
+    hotels = state.get("hotels", {})
+    if not isinstance(hotels, dict):
+        raise ValueError("Price state does not contain a hotels object")
+    rows: list[dict[str, Any]] = []
+    for hotel_id, hotel in hotels.items():
+        valid_samples: list[tuple[str, int]] = []
+        for sample in hotel.get("prices", []):
+            try:
+                sample_date = date.fromisoformat(str(sample["date"])).isoformat()
+                sample_price = int(sample["price_yen"])
+            except (KeyError, TypeError, ValueError):
+                continue
+            if sample_price > 0:
+                valid_samples.append((sample_date, sample_price))
+        valid_samples.sort()
+        rows.append(
+            {
+                "hotel_id": str(hotel_id),
+                "hotel_name": str(hotel.get("hotel_name", "")),
+                "prefecture": str(hotel.get("prefecture", "")),
+                "area": str(hotel.get("area", "")),
+                "detail_url": str(hotel.get("detail_url", "")),
+                "first_observed_date": valid_samples[0][0] if valid_samples else "",
+                "last_observed_date": valid_samples[-1][0] if valid_samples else "",
+                "latest_daily_min_yen": valid_samples[-1][1] if valid_samples else "",
+                "recorded_30day_min_yen": min((price for _, price in valid_samples), default=""),
+                "observation_days": len(valid_samples),
+            }
+        )
+    rows.sort(key=lambda row: (row["prefecture"], row["area"], row["hotel_name"], row["hotel_id"]))
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    fieldnames = [
+        "hotel_id",
+        "hotel_name",
+        "prefecture",
+        "area",
+        "detail_url",
+        "first_observed_date",
+        "last_observed_date",
+        "latest_daily_min_yen",
+        "recorded_30day_min_yen",
+        "observation_days",
+    ]
+    with output_path.open("w", encoding="utf-8-sig", newline="") as stream:
+        writer = csv.DictWriter(stream, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows)
+    return len(rows)
+
+
 def find_anomalies(
     observations: dict[str, dict[str, Any]],
     state: dict[str, Any],
@@ -706,6 +758,14 @@ def run_prepare(args: argparse.Namespace, config: dict[str, Any]) -> int:
     return 0
 
 
+def run_export(args: argparse.Namespace, config: dict[str, Any]) -> int:
+    state_path = Path(args.state or config.get("hotel_price_state_file", "data/hotel_price_state.json.gz"))
+    output_path = Path(args.output)
+    count = export_facilities_csv(load_price_state(state_path), output_path)
+    print(f"Exported {count} hotel facilities to {output_path}.", flush=True)
+    return 0
+
+
 def run_collect(args: argparse.Namespace, config: dict[str, Any]) -> int:
     if args.prefecture:
         selected = [item for item in PREFECTURES if item[0] == args.prefecture]
@@ -796,6 +856,10 @@ def build_parser() -> argparse.ArgumentParser:
     prepare.add_argument("--config", default="config.example.json")
     prepare.add_argument("--output", required=True)
     prepare.add_argument("--observed-date", help="Override JST date (YYYY-MM-DD) for tests")
+    export = subparsers.add_parser("export", help="Export the stored facility list as CSV")
+    export.add_argument("--config", default="config.example.json")
+    export.add_argument("--state")
+    export.add_argument("--output", default="data/hotel_facilities.csv")
     collect = subparsers.add_parser("collect", help="Collect one region shard")
     collect.add_argument("--config", default="config.example.json")
     collect.add_argument("--shard-index", type=int, required=True)
@@ -817,6 +881,8 @@ def main() -> int:
     config = load_json(Path(args.config), {})
     if args.command == "prepare":
         return run_prepare(args, config)
+    if args.command == "export":
+        return run_export(args, config)
     if args.command == "collect":
         return run_collect(args, config)
     return run_aggregate(args, config)

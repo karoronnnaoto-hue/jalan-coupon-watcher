@@ -37,6 +37,12 @@
 python3 jalan_hotel_price_bot.py collect --config config.example.json --shard-index 0 --shard-count 100 --prefecture 130000 --output data/shards/tokyo.json
 ```
 
+保存済みの全宿泊施設をExcel対応CSVへ書き出す場合:
+
+```bash
+python3 jalan_hotel_price_bot.py export --config config.example.json --output data/hotel_facilities.csv
+```
+
 GitHub Actionsの `Monitor Jalan hotel price anomalies` は約3時間ごと（毎日0:17、3:17、6:17、9:17、12:17、15:17、18:17、21:17ごろ・日本時間）に起動します。100ジョブへの分担後、実際に同時実行される数はGitHubアカウントの上限に従います。
 
 既定値は「実質割引率が50%を超える」クーポンだけです。50%ちょうどは通知対象に含みません。

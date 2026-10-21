@@ -12,6 +12,7 @@ from jalan_hotel_price_bot import (
     build_region_page_url,
     count_comparable_hotels,
     discover_region_urls,
+    export_facilities_csv,
     find_anomalies,
     atomic_write_price_state,
     load_price_state,
@@ -181,6 +182,29 @@ class HotelPriceTests(unittest.TestCase):
         fields = payload["embeds"][0]["fields"]
         self.assertIn({"name": "取得宿数", "value": "23,451軒", "inline": True}, fields)
         self.assertIn({"name": "比較できた宿", "value": "23,000軒", "inline": True}, fields)
+
+    def test_export_facilities_csv(self):
+        state = {
+            "hotels": {
+                "123456": {
+                    "hotel_name": "テストホテル",
+                    "prefecture": "東京都",
+                    "area": "東京都 > 新宿",
+                    "detail_url": "https://www.jalan.net/yad123456/",
+                    "prices": [
+                        {"date": "2026-10-20", "price_yen": 12000},
+                        {"date": "2026-10-21", "price_yen": 9000},
+                    ],
+                }
+            }
+        }
+        with tempfile.TemporaryDirectory(dir=Path.cwd()) as directory:
+            output = Path(directory) / "hotels.csv"
+            self.assertEqual(export_facilities_csv(state, output), 1)
+            text = output.read_text(encoding="utf-8-sig")
+        self.assertIn("hotel_id,hotel_name,prefecture", text)
+        self.assertIn("123456,テストホテル,東京都", text)
+        self.assertIn("2026-10-20,2026-10-21,9000,9000,2", text)
 
 
 if __name__ == "__main__":
