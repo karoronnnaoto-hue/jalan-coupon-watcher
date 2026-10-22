@@ -99,6 +99,8 @@ class HotelPriceTests(unittest.TestCase):
         self.assertIn("adultNum=2", second)
         self.assertIn("dateUndecided=1", second)
         self.assertIn("activeSort=1", second)
+        fallback = build_region_page_url("https://www.jalan.net/130000/LRG_136200/", 1, None)
+        self.assertNotIn("activeSort", fallback)
 
     def test_one_hundred_shards_cover_every_region_once(self):
         regions = [
@@ -141,6 +143,34 @@ class HotelPriceTests(unittest.TestCase):
             result = collect_region_prices(config, regions, 0, 1, date(2026, 10, 22))
         self.assertEqual(collect_once.call_count, 2)
         self.assertEqual(result["hotels"]["123456"]["price_yen"], 1000)
+
+    def test_region_scan_unions_alternate_sort_results(self):
+        first = HotelPrice("111111", "宿A", "東京都", "東京都 > 新宿", 1000, "https://example/a")
+        second = HotelPrice("222222", "宿B", "東京都", "東京都 > 新宿", 2000, "https://example/b")
+        config = {
+            "hotel_price_region_retry_count": 2,
+            "hotel_price_request_delay_seconds": 0.5,
+            "hotel_price_max_pages_per_region": 50,
+            "hotel_price_max_pages_per_shard": 50,
+        }
+        regions = [
+            {
+                "prefecture_code": "130000",
+                "prefecture_name": "東京都",
+                "region_url": "https://www.jalan.net/130000/LRG_136200/",
+            }
+        ]
+        with (
+            patch(
+                "jalan_hotel_price_bot._collect_region_once",
+                side_effect=[(2, 1, [first]), (2, 1, [second])],
+            ) as collect_once,
+            patch("jalan_hotel_price_bot.time.sleep"),
+        ):
+            result = collect_region_prices(config, regions, 0, 1, date(2026, 10, 22))
+        self.assertEqual(set(result["hotels"]), {"111111", "222222"})
+        self.assertEqual(collect_once.call_args_list[0].args[-1], "1")
+        self.assertIsNone(collect_once.call_args_list[1].args[-1])
 
     def test_detects_drop_below_recorded_minimum_after_one_sample(self):
         today = date(2026, 10, 20)

@@ -248,12 +248,17 @@ def discover_region_urls(page_html: str, prefecture_code: str) -> list[str]:
     return [f"{BASE_URL}{path}" for path in dict.fromkeys(paths)]
 
 
-def build_region_page_url(region_url: str, page: int) -> str:
+def build_region_page_url(region_url: str, page: int, active_sort: str | None = "1") -> str:
     if page < 1:
         raise ValueError("page must be at least 1")
     base = region_url.rstrip("/")
     path = f"{base}/" if page == 1 else f"{base}/page{page}.html"
-    return f"{path}?{urlencode(LISTING_QUERY)}"
+    query = dict(LISTING_QUERY)
+    if active_sort is None:
+        query.pop("activeSort", None)
+    else:
+        query["activeSort"] = active_sort
+    return f"{path}?{urlencode(query)}"
 
 
 def shard_prefectures(shard_index: int, shard_count: int) -> list[tuple[str, str]]:
@@ -367,8 +372,9 @@ def _collect_region_once(
     retry_delay: float,
     delay: float,
     max_pages_per_region: int,
+    active_sort: str | None,
 ) -> tuple[int, int, list[HotelPrice]]:
-    first_url = build_region_page_url(region_url, 1)
+    first_url = build_region_page_url(region_url, 1, active_sort)
     _, total, first_hotels = _fetch_validated_region_page(
         first_url, prefecture_name, None, timeout, user_agent, attempts, retry_delay
     )
@@ -386,7 +392,7 @@ def _collect_region_once(
         time.sleep(delay)
         expected = min(RESULTS_PER_PAGE, total - ((page - 1) * RESULTS_PER_PAGE))
         _, repeated_total, page_hotels = _fetch_validated_region_page(
-            build_region_page_url(region_url, page),
+            build_region_page_url(region_url, page, active_sort),
             prefecture_name,
             expected,
             timeout,
@@ -394,13 +400,8 @@ def _collect_region_once(
             attempts,
             retry_delay,
         )
-        if repeated_total != total:
-            raise RuntimeError(f"Result count changed while scanning {region_url}: {total} -> {repeated_total}")
+        total = max(total, repeated_total)
         _merge_hotels(region_hotels, page_hotels)
-    if len(region_hotels) != total:
-        raise RuntimeError(
-            f"{region_url} reports {total} hotels but scan produced {len(region_hotels)} unique hotels"
-        )
     return total, max(pages, 1), list(region_hotels.values())
 
 
@@ -428,16 +429,21 @@ def collect_region_prices(
         if pages_fetched:
             time.sleep(delay)
         last_error: RuntimeError | None = None
+        accumulated_hotels: dict[str, HotelPrice] = {}
+        target_total = 0
+        region_pages = 0
         for region_attempt in range(region_attempts):
+            active_sort = "1" if region_attempt % 2 == 0 else None
             if region_attempt:
                 time.sleep(retry_delay)
                 print(
                     f"[{shard_index + 1}/{shard_count}] retrying {region_url} "
-                    f"({region_attempt + 1}/{region_attempts})",
+                    f"({region_attempt + 1}/{region_attempts}, "
+                    f"sort={'price' if active_sort else 'default'})",
                     flush=True,
                 )
             try:
-                total, region_pages, region_hotels = _collect_region_once(
+                total, attempt_pages, attempt_hotels = _collect_region_once(
                     region_url,
                     prefecture_name,
                     timeout,
@@ -446,14 +452,25 @@ def collect_region_prices(
                     retry_delay,
                     delay,
                     max_pages_per_region,
+                    active_sort,
                 )
-                break
+                target_total = max(target_total, total)
+                region_pages = max(region_pages, attempt_pages)
+                _merge_hotels(accumulated_hotels, attempt_hotels)
+                if len(accumulated_hotels) >= target_total:
+                    break
+                last_error = RuntimeError(
+                    f"{region_url} reports {target_total} hotels but accumulated scans produced "
+                    f"{len(accumulated_hotels)} unique hotels"
+                )
             except RuntimeError as exc:
                 last_error = exc
         else:
             raise RuntimeError(
                 f"Region scan failed after {region_attempts} attempts for {region_url}: {last_error}"
             )
+        region_hotels = list(accumulated_hotels.values())
+        total = target_total
         if pages_fetched + region_pages > max_pages_per_shard:
             raise RuntimeError(f"Shard exceeded hotel_price_max_pages_per_shard={max_pages_per_shard}")
         pages_fetched += region_pages
