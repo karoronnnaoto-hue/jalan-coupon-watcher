@@ -14,6 +14,7 @@ from jalan_hotel_price_bot import (
     collect_region_prices,
     count_anomaly_tiers,
     count_comparable_hotels,
+    discover_regions,
     discover_region_urls,
     export_facilities_csv,
     find_anomalies,
@@ -90,6 +91,21 @@ class HotelPriceTests(unittest.TestCase):
             discover_region_urls(landing, "130000"),
             ["https://www.jalan.net/130000/LRG_136200/", "https://www.jalan.net/130000/LRG_136500/"],
         )
+
+    def test_region_discovery_retries_incomplete_landing_page(self):
+        config = {
+            "request_retry_count": 2,
+            "retry_delay_seconds": 1,
+            "hotel_price_request_delay_seconds": 0.5,
+            "hotel_price_max_regions_per_prefecture": 40,
+        }
+        valid = '<a href="/330000/LRG_330200/">岡山・玉野</a>'
+        with (
+            patch("jalan_hotel_price_bot._fetch_text_url", side_effect=[("", "<html></html>"), ("", valid)]),
+            patch("jalan_hotel_price_bot.time.sleep"),
+        ):
+            regions = discover_regions(config, [("330000", "岡山県")])
+        self.assertEqual(regions[0]["region_url"], "https://www.jalan.net/330000/LRG_330200/")
 
     def test_region_pagination_url(self):
         first = build_region_page_url("https://www.jalan.net/130000/LRG_136200/", 1)

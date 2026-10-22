@@ -313,12 +313,20 @@ def discover_regions(
         if index:
             time.sleep(delay)
         print(f"Discovering {prefecture_name} regions", flush=True)
-        _, landing_html = _fetch_text_url(
-            f"{BASE_URL}/{prefecture_code}/", timeout, user_agent, attempts, retry_delay
-        )
-        region_urls = discover_region_urls(landing_html, prefecture_code)
+        region_urls: list[str] = []
+        for validation_attempt in range(attempts):
+            _, landing_html = _fetch_text_url(
+                f"{BASE_URL}/{prefecture_code}/", timeout, user_agent, 1, retry_delay
+            )
+            region_urls = discover_region_urls(landing_html, prefecture_code)
+            if region_urls:
+                break
+            if validation_attempt + 1 < attempts:
+                time.sleep(retry_delay)
         if not region_urls:
-            raise RuntimeError(f"No large-area links found for {prefecture_name}")
+            raise RuntimeError(
+                f"No large-area links found for {prefecture_name} after {attempts} attempts"
+            )
         if len(region_urls) > max_regions:
             raise RuntimeError(f"{prefecture_name} has {len(region_urls)} regions, above safety limit {max_regions}")
         discovered.extend(
