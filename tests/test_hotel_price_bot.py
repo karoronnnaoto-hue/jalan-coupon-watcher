@@ -10,6 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from jalan_hotel_price_bot import (
     build_region_page_url,
+    count_anomaly_tiers,
     count_comparable_hotels,
     discover_region_urls,
     export_facilities_csv,
@@ -17,7 +18,9 @@ from jalan_hotel_price_bot import (
     atomic_write_price_state,
     load_price_state,
     load_complete_shards,
+    notify_anomalies,
     notify_scan_summary,
+    parse_drop_rate_thresholds,
     parse_hotel_results,
     parse_result_count,
     shard_regions,
@@ -112,6 +115,24 @@ class HotelPriceTests(unittest.TestCase):
         self.assertAlmostEqual(anomalies[0].drop_rate, 0.9)
         self.assertEqual(count_comparable_hotels(observation(), state, today, 30), 1)
 
+    def test_classifies_anomalies_into_highest_reached_tier(self):
+        today = date(2026, 10, 22)
+        thresholds = parse_drop_rate_thresholds({"hotel_price_drop_rates": [0.6, 0.7, 0.8, 0.9]})
+        anomalies = find_anomalies(observation(2000), history_state(today, 1, 14400), today, 30, min(thresholds))
+        self.assertEqual(len(anomalies), 1)
+        self.assertAlmostEqual(anomalies[0].drop_rate, 1 - (2000 / 14400))
+        self.assertEqual(count_anomaly_tiers(anomalies, thresholds), {60: 0, 70: 0, 80: 1, 90: 0})
+
+    def test_same_day_low_is_not_used_as_historical_baseline(self):
+        today = date(2026, 10, 22)
+        state = history_state(today, 1, 14400)
+        state["hotels"]["123456"]["prices"].append(
+            {"date": today.isoformat(), "price_yen": 2000}
+        )
+        anomalies = find_anomalies(observation(2000), state, today, 30, 0.6)
+        self.assertEqual(len(anomalies), 1)
+        self.assertEqual(anomalies[0].historical_min_yen, 14400)
+
     def test_uses_lowest_recorded_price_and_ignores_expired_history(self):
         today = date(2026, 10, 20)
         state = history_state(today, 2, 10000)
@@ -176,12 +197,27 @@ class HotelPriceTests(unittest.TestCase):
                 23000,
                 2,
                 2,
+                {60: 0, 70: 0, 80: 2, 90: 0},
             )
         payload = post.call_args.args[1]
-        self.assertIn("大幅下落 2件", payload["content"])
+        self.assertIn("60%以上下落 2件", payload["content"])
         fields = payload["embeds"][0]["fields"]
         self.assertIn({"name": "取得宿数", "value": "23,451軒", "inline": True}, fields)
         self.assertIn({"name": "比較できた宿", "value": "23,000軒", "inline": True}, fields)
+        self.assertIn({"name": "80-89%下落", "value": "2件", "inline": True}, fields)
+
+    def test_anomaly_notifications_are_grouped_by_tier(self):
+        today = date(2026, 10, 22)
+        thresholds = (0.6, 0.7, 0.8, 0.9)
+        anomalies = find_anomalies(observation(2000), history_state(today, 1, 14400), today, 30, 0.6)
+        with patch("jalan_hotel_price_bot.post_discord") as post:
+            notify_anomalies("https://example.test/webhook", anomalies, thresholds)
+        payload = post.call_args.args[1]
+        self.assertIn("80%以上安いホテルを1件", payload["content"])
+        self.assertIn(
+            {"name": "通知区分", "value": "80%以上下落", "inline": True},
+            payload["embeds"][0]["fields"],
+        )
 
     def test_export_facilities_csv(self):
         state = {

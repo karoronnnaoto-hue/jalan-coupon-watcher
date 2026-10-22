@@ -10,7 +10,7 @@
   "max_regional_campaigns": 100,
   "max_regional_detail_pages": 200,
   "regional_request_delay_seconds": 1.0,
-  "hotel_price_drop_rate": 0.9,
+  "hotel_price_drop_rates": [0.6, 0.7, 0.8, 0.9],
   "hotel_price_history_days": 30,
   "hotel_price_parallel_shards": 100,
   "hotel_price_request_delay_seconds": 1.0,
