@@ -358,6 +358,52 @@ def load_region_manifest(path: Path) -> tuple[date, list[dict[str, str]]]:
     return date.fromisoformat(str(manifest.get("observed_date_jst", ""))), regions
 
 
+def _collect_region_once(
+    region_url: str,
+    prefecture_name: str,
+    timeout: int,
+    user_agent: str,
+    attempts: int,
+    retry_delay: float,
+    delay: float,
+    max_pages_per_region: int,
+) -> tuple[int, int, list[HotelPrice]]:
+    first_url = build_region_page_url(region_url, 1)
+    _, total, first_hotels = _fetch_validated_region_page(
+        first_url, prefecture_name, None, timeout, user_agent, attempts, retry_delay
+    )
+    pages = math.ceil(total / RESULTS_PER_PAGE) if total else 0
+    if pages > max_pages_per_region:
+        raise RuntimeError(f"{region_url} requires {pages} pages, above safety limit {max_pages_per_region}")
+    expected_first = min(total, RESULTS_PER_PAGE)
+    if len(first_hotels) != expected_first:
+        raise RuntimeError(
+            f"{region_url} reports {total} hotels but page 1 has {len(first_hotels)} regular cards"
+        )
+    region_hotels: dict[str, HotelPrice] = {}
+    _merge_hotels(region_hotels, first_hotels)
+    for page in range(2, pages + 1):
+        time.sleep(delay)
+        expected = min(RESULTS_PER_PAGE, total - ((page - 1) * RESULTS_PER_PAGE))
+        _, repeated_total, page_hotels = _fetch_validated_region_page(
+            build_region_page_url(region_url, page),
+            prefecture_name,
+            expected,
+            timeout,
+            user_agent,
+            attempts,
+            retry_delay,
+        )
+        if repeated_total != total:
+            raise RuntimeError(f"Result count changed while scanning {region_url}: {total} -> {repeated_total}")
+        _merge_hotels(region_hotels, page_hotels)
+    if len(region_hotels) != total:
+        raise RuntimeError(
+            f"{region_url} reports {total} hotels but scan produced {len(region_hotels)} unique hotels"
+        )
+    return total, max(pages, 1), list(region_hotels.values())
+
+
 def collect_region_prices(
     config: dict[str, Any],
     regions: list[dict[str, str]],
@@ -372,6 +418,7 @@ def collect_region_prices(
     user_agent = str(config.get("user_agent") or DEFAULT_USER_AGENT)
     max_pages_per_region = max(int(config.get("hotel_price_max_pages_per_region", 50)), 1)
     max_pages_per_shard = max(int(config.get("hotel_price_max_pages_per_shard", 500)), 1)
+    region_attempts = max(1, min(int(config.get("hotel_price_region_retry_count", 3)), 5))
     hotels: dict[str, HotelPrice] = {}
     pages_fetched = 0
 
@@ -380,46 +427,42 @@ def collect_region_prices(
         region_url = region["region_url"]
         if pages_fetched:
             time.sleep(delay)
-        first_url = build_region_page_url(region_url, 1)
-        _, total, first_hotels = _fetch_validated_region_page(
-            first_url, prefecture_name, None, timeout, user_agent, attempts, retry_delay
-        )
-        pages = math.ceil(total / RESULTS_PER_PAGE) if total else 0
-        if pages > max_pages_per_region:
-            raise RuntimeError(f"{region_url} requires {pages} pages, above safety limit {max_pages_per_region}")
-        expected_first = min(total, RESULTS_PER_PAGE)
-        if len(first_hotels) != expected_first:
+        last_error: RuntimeError | None = None
+        for region_attempt in range(region_attempts):
+            if region_attempt:
+                time.sleep(retry_delay)
+                print(
+                    f"[{shard_index + 1}/{shard_count}] retrying {region_url} "
+                    f"({region_attempt + 1}/{region_attempts})",
+                    flush=True,
+                )
+            try:
+                total, region_pages, region_hotels = _collect_region_once(
+                    region_url,
+                    prefecture_name,
+                    timeout,
+                    user_agent,
+                    attempts,
+                    retry_delay,
+                    delay,
+                    max_pages_per_region,
+                )
+                break
+            except RuntimeError as exc:
+                last_error = exc
+        else:
             raise RuntimeError(
-                f"{region_url} reports {total} hotels but page 1 has {len(first_hotels)} regular cards"
+                f"Region scan failed after {region_attempts} attempts for {region_url}: {last_error}"
             )
-        pages_fetched += 1
-        if pages_fetched > max_pages_per_shard:
+        if pages_fetched + region_pages > max_pages_per_shard:
             raise RuntimeError(f"Shard exceeded hotel_price_max_pages_per_shard={max_pages_per_shard}")
-        _merge_hotels(hotels, first_hotels)
+        pages_fetched += region_pages
+        _merge_hotels(hotels, region_hotels)
         print(
             f"[{shard_index + 1}/{shard_count}] region {region_index}/{len(regions)} "
-            f"({prefecture_name}): {total} hotels, {pages} pages",
+            f"({prefecture_name}): {total} hotels, {region_pages} pages",
             flush=True,
         )
-
-        for page in range(2, pages + 1):
-            time.sleep(delay)
-            expected = min(RESULTS_PER_PAGE, total - ((page - 1) * RESULTS_PER_PAGE))
-            _, repeated_total, page_hotels = _fetch_validated_region_page(
-                build_region_page_url(region_url, page),
-                prefecture_name,
-                expected,
-                timeout,
-                user_agent,
-                attempts,
-                retry_delay,
-            )
-            if repeated_total != total:
-                raise RuntimeError(f"Result count changed while scanning {region_url}: {total} -> {repeated_total}")
-            pages_fetched += 1
-            if pages_fetched > max_pages_per_shard:
-                raise RuntimeError(f"Shard exceeded hotel_price_max_pages_per_shard={max_pages_per_shard}")
-            _merge_hotels(hotels, page_hotels)
 
     priced = {hotel_id: asdict(item) for hotel_id, item in hotels.items() if item.price_yen is not None and item.price_yen > 0}
     return {
