@@ -96,6 +96,7 @@ class HotelPriceTests(unittest.TestCase):
         self.assertIn("LRG_136200/page2.html?", second)
         self.assertIn("adultNum=2", second)
         self.assertIn("dateUndecided=1", second)
+        self.assertIn("activeSort=1", second)
 
     def test_one_hundred_shards_cover_every_region_once(self):
         regions = [

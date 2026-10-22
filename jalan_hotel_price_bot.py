@@ -44,6 +44,7 @@ LISTING_QUERY = {
     "roomCrack": "200000",
     "minPrice": "0",
     "maxPrice": "999999",
+    "activeSort": "1",
 }
 
 PREFECTURES = (
