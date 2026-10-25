@@ -1099,7 +1099,11 @@
   },
   "last_daily_status_jst": "2026-10-24",
   "missing_counts": {
-    "COU3167114:CAM8705975": 1
+    "COU2110368:CAM8306908": 1,
+    "COU2242540:CAM6493513": 1,
+    "COU3167114:CAM8705975": 2,
+    "COU4176158:CAM8705975": 1,
+    "COU4477586:CAM9577810": 1
   },
   "schema_version": 4,
   "snapshot": {
