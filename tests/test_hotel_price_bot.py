@@ -107,6 +107,25 @@ class HotelPriceTests(unittest.TestCase):
             regions = discover_regions(config, [("330000", "岡山県")])
         self.assertEqual(regions[0]["region_url"], "https://www.jalan.net/330000/LRG_330200/")
 
+    def test_region_discovery_retries_transient_fetch_failure(self):
+        config = {
+            "request_retry_count": 2,
+            "retry_delay_seconds": 1,
+            "hotel_price_request_delay_seconds": 0.5,
+            "hotel_price_max_regions_per_prefecture": 40,
+        }
+        valid = '<a href="/030000/LRG_030100/">盛岡</a>'
+        with (
+            patch(
+                "jalan_hotel_price_bot._fetch_text_url",
+                side_effect=[RuntimeError("HTTP Error 503"), ("", valid)],
+            ) as fetch,
+            patch("jalan_hotel_price_bot.time.sleep"),
+        ):
+            regions = discover_regions(config, [("030000", "岩手県")])
+        self.assertEqual(fetch.call_count, 2)
+        self.assertEqual(regions[0]["region_url"], "https://www.jalan.net/030000/LRG_030100/")
+
     def test_region_pagination_url(self):
         first = build_region_page_url("https://www.jalan.net/130000/LRG_136200/", 1)
         second = build_region_page_url("https://www.jalan.net/130000/LRG_136200/", 2)
@@ -187,6 +206,53 @@ class HotelPriceTests(unittest.TestCase):
         self.assertEqual(set(result["hotels"]), {"111111", "222222"})
         self.assertEqual(collect_once.call_args_list[0].args[-1], "1")
         self.assertIsNone(collect_once.call_args_list[1].args[-1])
+
+    def test_region_scan_accepts_one_hotel_unique_shortfall(self):
+        hotel = HotelPrice("111111", "宿A", "大阪府", "大阪府 > 大阪市", 1000, "https://example/a")
+        config = {
+            "hotel_price_region_retry_count": 2,
+            "hotel_price_max_unique_shortfall": 1,
+            "hotel_price_request_delay_seconds": 0.5,
+            "hotel_price_max_pages_per_region": 50,
+            "hotel_price_max_pages_per_shard": 50,
+        }
+        regions = [
+            {
+                "prefecture_code": "270000",
+                "prefecture_name": "大阪府",
+                "region_url": "https://www.jalan.net/270000/LRG_272000/",
+            }
+        ]
+        with (
+            patch("jalan_hotel_price_bot._collect_region_once", return_value=(2, 1, [hotel])) as collect_once,
+            patch("jalan_hotel_price_bot.time.sleep"),
+        ):
+            result = collect_region_prices(config, regions, 0, 1, date(2026, 10, 26))
+        self.assertEqual(collect_once.call_count, 2)
+        self.assertEqual(set(result["hotels"]), {"111111"})
+
+    def test_region_scan_rejects_shortfall_above_limit(self):
+        hotel = HotelPrice("111111", "宿A", "大阪府", "大阪府 > 大阪市", 1000, "https://example/a")
+        config = {
+            "hotel_price_region_retry_count": 2,
+            "hotel_price_max_unique_shortfall": 1,
+            "hotel_price_request_delay_seconds": 0.5,
+            "hotel_price_max_pages_per_region": 50,
+            "hotel_price_max_pages_per_shard": 50,
+        }
+        regions = [
+            {
+                "prefecture_code": "270000",
+                "prefecture_name": "大阪府",
+                "region_url": "https://www.jalan.net/270000/LRG_272000/",
+            }
+        ]
+        with (
+            patch("jalan_hotel_price_bot._collect_region_once", return_value=(3, 1, [hotel])),
+            patch("jalan_hotel_price_bot.time.sleep"),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "Region scan failed"):
+                collect_region_prices(config, regions, 0, 1, date(2026, 10, 26))
 
     def test_detects_drop_below_recorded_minimum_after_one_sample(self):
         today = date(2026, 10, 20)

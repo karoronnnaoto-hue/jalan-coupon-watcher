@@ -314,18 +314,25 @@ def discover_regions(
             time.sleep(delay)
         print(f"Discovering {prefecture_name} regions", flush=True)
         region_urls: list[str] = []
+        last_error: RuntimeError | None = None
         for validation_attempt in range(attempts):
-            _, landing_html = _fetch_text_url(
-                f"{BASE_URL}/{prefecture_code}/", timeout, user_agent, 1, retry_delay
-            )
-            region_urls = discover_region_urls(landing_html, prefecture_code)
+            try:
+                _, landing_html = _fetch_text_url(
+                    f"{BASE_URL}/{prefecture_code}/", timeout, user_agent, 1, retry_delay
+                )
+                region_urls = discover_region_urls(landing_html, prefecture_code)
+                last_error = None
+            except RuntimeError as exc:
+                last_error = exc
+                region_urls = []
             if region_urls:
                 break
             if validation_attempt + 1 < attempts:
                 time.sleep(retry_delay)
         if not region_urls:
+            detail = f": {last_error}" if last_error else ""
             raise RuntimeError(
-                f"No large-area links found for {prefecture_name} after {attempts} attempts"
+                f"No large-area links found for {prefecture_name} after {attempts} attempts{detail}"
             )
         if len(region_urls) > max_regions:
             raise RuntimeError(f"{prefecture_name} has {len(region_urls)} regions, above safety limit {max_regions}")
@@ -428,6 +435,7 @@ def collect_region_prices(
     max_pages_per_region = max(int(config.get("hotel_price_max_pages_per_region", 50)), 1)
     max_pages_per_shard = max(int(config.get("hotel_price_max_pages_per_shard", 500)), 1)
     region_attempts = max(1, min(int(config.get("hotel_price_region_retry_count", 3)), 5))
+    max_unique_shortfall = max(int(config.get("hotel_price_max_unique_shortfall", 1)), 0)
     hotels: dict[str, HotelPrice] = {}
     pages_fetched = 0
 
@@ -440,6 +448,7 @@ def collect_region_prices(
         accumulated_hotels: dict[str, HotelPrice] = {}
         target_total = 0
         region_pages = 0
+        successful_scans = 0
         for region_attempt in range(region_attempts):
             active_sort = "1" if region_attempt % 2 == 0 else None
             if region_attempt:
@@ -462,6 +471,7 @@ def collect_region_prices(
                     max_pages_per_region,
                     active_sort,
                 )
+                successful_scans += 1
                 target_total = max(target_total, total)
                 region_pages = max(region_pages, attempt_pages)
                 _merge_hotels(accumulated_hotels, attempt_hotels)
@@ -474,8 +484,16 @@ def collect_region_prices(
             except RuntimeError as exc:
                 last_error = exc
         else:
-            raise RuntimeError(
-                f"Region scan failed after {region_attempts} attempts for {region_url}: {last_error}"
+            shortfall = max(target_total - len(accumulated_hotels), 0)
+            if successful_scans == 0 or shortfall > max_unique_shortfall:
+                raise RuntimeError(
+                    f"Region scan failed after {region_attempts} attempts for {region_url}: {last_error}"
+                )
+            print(
+                f"WARNING: {region_url} reports {target_total} hotels but only "
+                f"{len(accumulated_hotels)} unique hotels were available after "
+                f"{region_attempts} attempts; accepting shortfall={shortfall}",
+                flush=True,
             )
         region_hotels = list(accumulated_hotels.values())
         total = target_total
