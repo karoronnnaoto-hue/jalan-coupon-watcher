@@ -126,6 +126,39 @@ class HotelPriceTests(unittest.TestCase):
         self.assertEqual(fetch.call_count, 2)
         self.assertEqual(regions[0]["region_url"], "https://www.jalan.net/030000/LRG_030100/")
 
+    def test_region_discovery_uses_last_successful_manifest_when_live_page_is_empty(self):
+        with tempfile.TemporaryDirectory(dir=Path.cwd()) as directory:
+            fallback_path = Path(directory) / "regions.json"
+            fallback_path.write_text(
+                json.dumps(
+                    {
+                        "regions": [
+                            {
+                                "prefecture_code": "100000",
+                                "prefecture_name": "群馬県",
+                                "region_url": "https://www.jalan.net/100000/LRG_101400/",
+                            }
+                        ]
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+            config = {
+                "request_retry_count": 2,
+                "retry_delay_seconds": 1,
+                "hotel_price_request_delay_seconds": 0.5,
+                "hotel_price_max_regions_per_prefecture": 40,
+                "hotel_price_region_fallback_file": str(fallback_path),
+            }
+            with (
+                patch("jalan_hotel_price_bot._fetch_text_url", return_value=("", "<html></html>")) as fetch,
+                patch("jalan_hotel_price_bot.time.sleep"),
+            ):
+                regions = discover_regions(config, [("100000", "群馬県")])
+        self.assertEqual(fetch.call_count, 2)
+        self.assertEqual(regions[0]["region_url"], "https://www.jalan.net/100000/LRG_101400/")
+
     def test_region_pagination_url(self):
         first = build_region_page_url("https://www.jalan.net/130000/LRG_136200/", 1)
         second = build_region_page_url("https://www.jalan.net/130000/LRG_136200/", 2)

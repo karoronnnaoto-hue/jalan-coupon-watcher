@@ -1,0 +1,1556 @@
+{
+  "observed_date_jst": "2026-10-26",
+  "regions": [
+    {
+      "prefecture_code": "010000",
+      "prefecture_name": "北海道",
+      "region_url": "https://www.jalan.net/010000/LRG_010200/"
+    },
+    {
+      "prefecture_code": "010000",
+      "prefecture_name": "北海道",
+      "region_url": "https://www.jalan.net/010000/LRG_011400/"
+    },
+    {
+      "prefecture_code": "010000",
+      "prefecture_name": "北海道",
+      "region_url": "https://www.jalan.net/010000/LRG_012000/"
+    },
+    {
+      "prefecture_code": "010000",
+      "prefecture_name": "北海道",
+      "region_url": "https://www.jalan.net/010000/LRG_012600/"
+    },
+    {
+      "prefecture_code": "010000",
+      "prefecture_name": "北海道",
+      "region_url": "https://www.jalan.net/010000/LRG_012100/"
+    },
+    {
+      "prefecture_code": "010000",
+      "prefecture_name": "北海道",
+      "region_url": "https://www.jalan.net/010000/LRG_010500/"
+    },
+    {
+      "prefecture_code": "010000",
+      "prefecture_name": "北海道",
+      "region_url": "https://www.jalan.net/010000/LRG_012300/"
+    },
+    {
+      "prefecture_code": "010000",
+      "prefecture_name": "北海道",
+      "region_url": "https://www.jalan.net/010000/LRG_013200/"
+    },
+    {
+      "prefecture_code": "010000",
+      "prefecture_name": "北海道",
+      "region_url": "https://www.jalan.net/010000/LRG_010300/"
+    },
+    {
+      "prefecture_code": "010000",
+      "prefecture_name": "北海道",
+      "region_url": "https://www.jalan.net/010000/LRG_011100/"
+    },
+    {
+      "prefecture_code": "010000",
+      "prefecture_name": "北海道",
+      "region_url": "https://www.jalan.net/010000/LRG_012900/"
+    },
+    {
+      "prefecture_code": "010000",
+      "prefecture_name": "北海道",
+      "region_url": "https://www.jalan.net/010000/LRG_011700/"
+    },
+    {
+      "prefecture_code": "010000",
+      "prefecture_name": "北海道",
+      "region_url": "https://www.jalan.net/010000/LRG_010800/"
+    },
+    {
+      "prefecture_code": "010000",
+      "prefecture_name": "北海道",
+      "region_url": "https://www.jalan.net/010000/LRG_013300/"
+    },
+    {
+      "prefecture_code": "010000",
+      "prefecture_name": "北海道",
+      "region_url": "https://www.jalan.net/010000/LRG_013500/"
+    },
+    {
+      "prefecture_code": "020000",
+      "prefecture_name": "青森県",
+      "region_url": "https://www.jalan.net/020000/LRG_020900/"
+    },
+    {
+      "prefecture_code": "020000",
+      "prefecture_name": "青森県",
+      "region_url": "https://www.jalan.net/020000/LRG_020500/"
+    },
+    {
+      "prefecture_code": "020000",
+      "prefecture_name": "青森県",
+      "region_url": "https://www.jalan.net/020000/LRG_020200/"
+    },
+    {
+      "prefecture_code": "020000",
+      "prefecture_name": "青森県",
+      "region_url": "https://www.jalan.net/020000/LRG_020800/"
+    },
+    {
+      "prefecture_code": "020000",
+      "prefecture_name": "青森県",
+      "region_url": "https://www.jalan.net/020000/LRG_021400/"
+    },
+    {
+      "prefecture_code": "020000",
+      "prefecture_name": "青森県",
+      "region_url": "https://www.jalan.net/020000/LRG_021100/"
+    },
+    {
+      "prefecture_code": "020000",
+      "prefecture_name": "青森県",
+      "region_url": "https://www.jalan.net/020000/LRG_021700/"
+    },
+    {
+      "prefecture_code": "030000",
+      "prefecture_name": "岩手県",
+      "region_url": "https://www.jalan.net/030000/LRG_030200/"
+    },
+    {
+      "prefecture_code": "030000",
+      "prefecture_name": "岩手県",
+      "region_url": "https://www.jalan.net/030000/LRG_030500/"
+    },
+    {
+      "prefecture_code": "030000",
+      "prefecture_name": "岩手県",
+      "region_url": "https://www.jalan.net/030000/LRG_031100/"
+    },
+    {
+      "prefecture_code": "030000",
+      "prefecture_name": "岩手県",
+      "region_url": "https://www.jalan.net/030000/LRG_030300/"
+    },
+    {
+      "prefecture_code": "030000",
+      "prefecture_name": "岩手県",
+      "region_url": "https://www.jalan.net/030000/LRG_030100/"
+    },
+    {
+      "prefecture_code": "030000",
+      "prefecture_name": "岩手県",
+      "region_url": "https://www.jalan.net/030000/LRG_030800/"
+    },
+    {
+      "prefecture_code": "040000",
+      "prefecture_name": "宮城県",
+      "region_url": "https://www.jalan.net/040000/LRG_040200/"
+    },
+    {
+      "prefecture_code": "040000",
+      "prefecture_name": "宮城県",
+      "region_url": "https://www.jalan.net/040000/LRG_041100/"
+    },
+    {
+      "prefecture_code": "040000",
+      "prefecture_name": "宮城県",
+      "region_url": "https://www.jalan.net/040000/LRG_040800/"
+    },
+    {
+      "prefecture_code": "040000",
+      "prefecture_name": "宮城県",
+      "region_url": "https://www.jalan.net/040000/LRG_040500/"
+    },
+    {
+      "prefecture_code": "040000",
+      "prefecture_name": "宮城県",
+      "region_url": "https://www.jalan.net/040000/LRG_041400/"
+    },
+    {
+      "prefecture_code": "040000",
+      "prefecture_name": "宮城県",
+      "region_url": "https://www.jalan.net/040000/LRG_041200/"
+    },
+    {
+      "prefecture_code": "050000",
+      "prefecture_name": "秋田県",
+      "region_url": "https://www.jalan.net/050000/LRG_050200/"
+    },
+    {
+      "prefecture_code": "050000",
+      "prefecture_name": "秋田県",
+      "region_url": "https://www.jalan.net/050000/LRG_050300/"
+    },
+    {
+      "prefecture_code": "050000",
+      "prefecture_name": "秋田県",
+      "region_url": "https://www.jalan.net/050000/LRG_050800/"
+    },
+    {
+      "prefecture_code": "050000",
+      "prefecture_name": "秋田県",
+      "region_url": "https://www.jalan.net/050000/LRG_050500/"
+    },
+    {
+      "prefecture_code": "050000",
+      "prefecture_name": "秋田県",
+      "region_url": "https://www.jalan.net/050000/LRG_051100/"
+    },
+    {
+      "prefecture_code": "060000",
+      "prefecture_name": "山形県",
+      "region_url": "https://www.jalan.net/060000/LRG_060200/"
+    },
+    {
+      "prefecture_code": "060000",
+      "prefecture_name": "山形県",
+      "region_url": "https://www.jalan.net/060000/LRG_061400/"
+    },
+    {
+      "prefecture_code": "060000",
+      "prefecture_name": "山形県",
+      "region_url": "https://www.jalan.net/060000/LRG_061100/"
+    },
+    {
+      "prefecture_code": "060000",
+      "prefecture_name": "山形県",
+      "region_url": "https://www.jalan.net/060000/LRG_060500/"
+    },
+    {
+      "prefecture_code": "060000",
+      "prefecture_name": "山形県",
+      "region_url": "https://www.jalan.net/060000/LRG_060800/"
+    },
+    {
+      "prefecture_code": "070000",
+      "prefecture_name": "福島県",
+      "region_url": "https://www.jalan.net/070000/LRG_070200/"
+    },
+    {
+      "prefecture_code": "070000",
+      "prefecture_name": "福島県",
+      "region_url": "https://www.jalan.net/070000/LRG_072500/"
+    },
+    {
+      "prefecture_code": "070000",
+      "prefecture_name": "福島県",
+      "region_url": "https://www.jalan.net/070000/LRG_073200/"
+    },
+    {
+      "prefecture_code": "070000",
+      "prefecture_name": "福島県",
+      "region_url": "https://www.jalan.net/070000/LRG_071500/"
+    },
+    {
+      "prefecture_code": "070000",
+      "prefecture_name": "福島県",
+      "region_url": "https://www.jalan.net/070000/LRG_071700/"
+    },
+    {
+      "prefecture_code": "070000",
+      "prefecture_name": "福島県",
+      "region_url": "https://www.jalan.net/070000/LRG_071600/"
+    },
+    {
+      "prefecture_code": "070000",
+      "prefecture_name": "福島県",
+      "region_url": "https://www.jalan.net/070000/LRG_072800/"
+    },
+    {
+      "prefecture_code": "070000",
+      "prefecture_name": "福島県",
+      "region_url": "https://www.jalan.net/070000/LRG_071100/"
+    },
+    {
+      "prefecture_code": "070000",
+      "prefecture_name": "福島県",
+      "region_url": "https://www.jalan.net/070000/LRG_072000/"
+    },
+    {
+      "prefecture_code": "080000",
+      "prefecture_name": "茨城県",
+      "region_url": "https://www.jalan.net/080000/LRG_080200/"
+    },
+    {
+      "prefecture_code": "080000",
+      "prefecture_name": "茨城県",
+      "region_url": "https://www.jalan.net/080000/LRG_080800/"
+    },
+    {
+      "prefecture_code": "080000",
+      "prefecture_name": "茨城県",
+      "region_url": "https://www.jalan.net/080000/LRG_080500/"
+    },
+    {
+      "prefecture_code": "080000",
+      "prefecture_name": "茨城県",
+      "region_url": "https://www.jalan.net/080000/LRG_081100/"
+    },
+    {
+      "prefecture_code": "080000",
+      "prefecture_name": "茨城県",
+      "region_url": "https://www.jalan.net/080000/LRG_080900/"
+    },
+    {
+      "prefecture_code": "080000",
+      "prefecture_name": "茨城県",
+      "region_url": "https://www.jalan.net/080000/LRG_080600/"
+    },
+    {
+      "prefecture_code": "080000",
+      "prefecture_name": "茨城県",
+      "region_url": "https://www.jalan.net/080000/LRG_081600/"
+    },
+    {
+      "prefecture_code": "090000",
+      "prefecture_name": "栃木県",
+      "region_url": "https://www.jalan.net/090000/LRG_090300/"
+    },
+    {
+      "prefecture_code": "090000",
+      "prefecture_name": "栃木県",
+      "region_url": "https://www.jalan.net/090000/LRG_091400/"
+    },
+    {
+      "prefecture_code": "090000",
+      "prefecture_name": "栃木県",
+      "region_url": "https://www.jalan.net/090000/LRG_090200/"
+    },
+    {
+      "prefecture_code": "090000",
+      "prefecture_name": "栃木県",
+      "region_url": "https://www.jalan.net/090000/LRG_090400/"
+    },
+    {
+      "prefecture_code": "090000",
+      "prefecture_name": "栃木県",
+      "region_url": "https://www.jalan.net/090000/LRG_091100/"
+    },
+    {
+      "prefecture_code": "090000",
+      "prefecture_name": "栃木県",
+      "region_url": "https://www.jalan.net/090000/LRG_090500/"
+    },
+    {
+      "prefecture_code": "090000",
+      "prefecture_name": "栃木県",
+      "region_url": "https://www.jalan.net/090000/LRG_090800/"
+    },
+    {
+      "prefecture_code": "090000",
+      "prefecture_name": "栃木県",
+      "region_url": "https://www.jalan.net/090000/LRG_092000/"
+    },
+    {
+      "prefecture_code": "090000",
+      "prefecture_name": "栃木県",
+      "region_url": "https://www.jalan.net/090000/LRG_090100/"
+    },
+    {
+      "prefecture_code": "100000",
+      "prefecture_name": "群馬県",
+      "region_url": "https://www.jalan.net/100000/LRG_101400/"
+    },
+    {
+      "prefecture_code": "100000",
+      "prefecture_name": "群馬県",
+      "region_url": "https://www.jalan.net/100000/LRG_100500/"
+    },
+    {
+      "prefecture_code": "100000",
+      "prefecture_name": "群馬県",
+      "region_url": "https://www.jalan.net/100000/LRG_101100/"
+    },
+    {
+      "prefecture_code": "100000",
+      "prefecture_name": "群馬県",
+      "region_url": "https://www.jalan.net/100000/LRG_100800/"
+    },
+    {
+      "prefecture_code": "100000",
+      "prefecture_name": "群馬県",
+      "region_url": "https://www.jalan.net/100000/LRG_100200/"
+    },
+    {
+      "prefecture_code": "100000",
+      "prefecture_name": "群馬県",
+      "region_url": "https://www.jalan.net/100000/LRG_100600/"
+    },
+    {
+      "prefecture_code": "110000",
+      "prefecture_name": "埼玉県",
+      "region_url": "https://www.jalan.net/110000/LRG_110200/"
+    },
+    {
+      "prefecture_code": "110000",
+      "prefecture_name": "埼玉県",
+      "region_url": "https://www.jalan.net/110000/LRG_111400/"
+    },
+    {
+      "prefecture_code": "110000",
+      "prefecture_name": "埼玉県",
+      "region_url": "https://www.jalan.net/110000/LRG_111700/"
+    },
+    {
+      "prefecture_code": "110000",
+      "prefecture_name": "埼玉県",
+      "region_url": "https://www.jalan.net/110000/LRG_110500/"
+    },
+    {
+      "prefecture_code": "110000",
+      "prefecture_name": "埼玉県",
+      "region_url": "https://www.jalan.net/110000/LRG_111100/"
+    },
+    {
+      "prefecture_code": "110000",
+      "prefecture_name": "埼玉県",
+      "region_url": "https://www.jalan.net/110000/LRG_110800/"
+    },
+    {
+      "prefecture_code": "120000",
+      "prefecture_name": "千葉県",
+      "region_url": "https://www.jalan.net/120000/LRG_120500/"
+    },
+    {
+      "prefecture_code": "120000",
+      "prefecture_name": "千葉県",
+      "region_url": "https://www.jalan.net/120000/LRG_120800/"
+    },
+    {
+      "prefecture_code": "120000",
+      "prefecture_name": "千葉県",
+      "region_url": "https://www.jalan.net/120000/LRG_120200/"
+    },
+    {
+      "prefecture_code": "120000",
+      "prefecture_name": "千葉県",
+      "region_url": "https://www.jalan.net/120000/LRG_121100/"
+    },
+    {
+      "prefecture_code": "120000",
+      "prefecture_name": "千葉県",
+      "region_url": "https://www.jalan.net/120000/LRG_122300/"
+    },
+    {
+      "prefecture_code": "120000",
+      "prefecture_name": "千葉県",
+      "region_url": "https://www.jalan.net/120000/LRG_122000/"
+    },
+    {
+      "prefecture_code": "120000",
+      "prefecture_name": "千葉県",
+      "region_url": "https://www.jalan.net/120000/LRG_122600/"
+    },
+    {
+      "prefecture_code": "120000",
+      "prefecture_name": "千葉県",
+      "region_url": "https://www.jalan.net/120000/LRG_121700/"
+    },
+    {
+      "prefecture_code": "120000",
+      "prefecture_name": "千葉県",
+      "region_url": "https://www.jalan.net/120000/LRG_121400/"
+    },
+    {
+      "prefecture_code": "130000",
+      "prefecture_name": "東京都",
+      "region_url": "https://www.jalan.net/130000/LRG_137100/"
+    },
+    {
+      "prefecture_code": "130000",
+      "prefecture_name": "東京都",
+      "region_url": "https://www.jalan.net/130000/LRG_138000/"
+    },
+    {
+      "prefecture_code": "130000",
+      "prefecture_name": "東京都",
+      "region_url": "https://www.jalan.net/130000/LRG_136200/"
+    },
+    {
+      "prefecture_code": "130000",
+      "prefecture_name": "東京都",
+      "region_url": "https://www.jalan.net/130000/LRG_137400/"
+    },
+    {
+      "prefecture_code": "130000",
+      "prefecture_name": "東京都",
+      "region_url": "https://www.jalan.net/130000/LRG_138300/"
+    },
+    {
+      "prefecture_code": "130000",
+      "prefecture_name": "東京都",
+      "region_url": "https://www.jalan.net/130000/LRG_139200/"
+    },
+    {
+      "prefecture_code": "130000",
+      "prefecture_name": "東京都",
+      "region_url": "https://www.jalan.net/130000/LRG_137700/"
+    },
+    {
+      "prefecture_code": "130000",
+      "prefecture_name": "東京都",
+      "region_url": "https://www.jalan.net/130000/LRG_136800/"
+    },
+    {
+      "prefecture_code": "130000",
+      "prefecture_name": "東京都",
+      "region_url": "https://www.jalan.net/130000/LRG_138600/"
+    },
+    {
+      "prefecture_code": "130000",
+      "prefecture_name": "東京都",
+      "region_url": "https://www.jalan.net/130000/LRG_136500/"
+    },
+    {
+      "prefecture_code": "130000",
+      "prefecture_name": "東京都",
+      "region_url": "https://www.jalan.net/130000/LRG_139500/"
+    },
+    {
+      "prefecture_code": "130000",
+      "prefecture_name": "東京都",
+      "region_url": "https://www.jalan.net/130000/LRG_138900/"
+    },
+    {
+      "prefecture_code": "130000",
+      "prefecture_name": "東京都",
+      "region_url": "https://www.jalan.net/130000/LRG_139800/"
+    },
+    {
+      "prefecture_code": "140000",
+      "prefecture_name": "神奈川県",
+      "region_url": "https://www.jalan.net/140000/LRG_140200/"
+    },
+    {
+      "prefecture_code": "140000",
+      "prefecture_name": "神奈川県",
+      "region_url": "https://www.jalan.net/140000/LRG_141600/"
+    },
+    {
+      "prefecture_code": "140000",
+      "prefecture_name": "神奈川県",
+      "region_url": "https://www.jalan.net/140000/LRG_140800/"
+    },
+    {
+      "prefecture_code": "140000",
+      "prefecture_name": "神奈川県",
+      "region_url": "https://www.jalan.net/140000/LRG_140100/"
+    },
+    {
+      "prefecture_code": "140000",
+      "prefecture_name": "神奈川県",
+      "region_url": "https://www.jalan.net/140000/LRG_141700/"
+    },
+    {
+      "prefecture_code": "140000",
+      "prefecture_name": "神奈川県",
+      "region_url": "https://www.jalan.net/140000/LRG_140500/"
+    },
+    {
+      "prefecture_code": "140000",
+      "prefecture_name": "神奈川県",
+      "region_url": "https://www.jalan.net/140000/LRG_141100/"
+    },
+    {
+      "prefecture_code": "140000",
+      "prefecture_name": "神奈川県",
+      "region_url": "https://www.jalan.net/140000/LRG_141400/"
+    },
+    {
+      "prefecture_code": "140000",
+      "prefecture_name": "神奈川県",
+      "region_url": "https://www.jalan.net/140000/LRG_142000/"
+    },
+    {
+      "prefecture_code": "150000",
+      "prefecture_name": "山梨県",
+      "region_url": "https://www.jalan.net/150000/LRG_150600/"
+    },
+    {
+      "prefecture_code": "150000",
+      "prefecture_name": "山梨県",
+      "region_url": "https://www.jalan.net/150000/LRG_150100/"
+    },
+    {
+      "prefecture_code": "150000",
+      "prefecture_name": "山梨県",
+      "region_url": "https://www.jalan.net/150000/LRG_151400/"
+    },
+    {
+      "prefecture_code": "150000",
+      "prefecture_name": "山梨県",
+      "region_url": "https://www.jalan.net/150000/LRG_150500/"
+    },
+    {
+      "prefecture_code": "150000",
+      "prefecture_name": "山梨県",
+      "region_url": "https://www.jalan.net/150000/LRG_150800/"
+    },
+    {
+      "prefecture_code": "150000",
+      "prefecture_name": "山梨県",
+      "region_url": "https://www.jalan.net/150000/LRG_150300/"
+    },
+    {
+      "prefecture_code": "150000",
+      "prefecture_name": "山梨県",
+      "region_url": "https://www.jalan.net/150000/LRG_150200/"
+    },
+    {
+      "prefecture_code": "150000",
+      "prefecture_name": "山梨県",
+      "region_url": "https://www.jalan.net/150000/LRG_151100/"
+    },
+    {
+      "prefecture_code": "160000",
+      "prefecture_name": "長野県",
+      "region_url": "https://www.jalan.net/160000/LRG_160200/"
+    },
+    {
+      "prefecture_code": "160000",
+      "prefecture_name": "長野県",
+      "region_url": "https://www.jalan.net/160000/LRG_162300/"
+    },
+    {
+      "prefecture_code": "160000",
+      "prefecture_name": "長野県",
+      "region_url": "https://www.jalan.net/160000/LRG_161900/"
+    },
+    {
+      "prefecture_code": "160000",
+      "prefecture_name": "長野県",
+      "region_url": "https://www.jalan.net/160000/LRG_162600/"
+    },
+    {
+      "prefecture_code": "160000",
+      "prefecture_name": "長野県",
+      "region_url": "https://www.jalan.net/160000/LRG_162200/"
+    },
+    {
+      "prefecture_code": "160000",
+      "prefecture_name": "長野県",
+      "region_url": "https://www.jalan.net/160000/LRG_161800/"
+    },
+    {
+      "prefecture_code": "160000",
+      "prefecture_name": "長野県",
+      "region_url": "https://www.jalan.net/160000/LRG_162000/"
+    },
+    {
+      "prefecture_code": "160000",
+      "prefecture_name": "長野県",
+      "region_url": "https://www.jalan.net/160000/LRG_160500/"
+    },
+    {
+      "prefecture_code": "160000",
+      "prefecture_name": "長野県",
+      "region_url": "https://www.jalan.net/160000/LRG_161400/"
+    },
+    {
+      "prefecture_code": "160000",
+      "prefecture_name": "長野県",
+      "region_url": "https://www.jalan.net/160000/LRG_162400/"
+    },
+    {
+      "prefecture_code": "160000",
+      "prefecture_name": "長野県",
+      "region_url": "https://www.jalan.net/160000/LRG_160800/"
+    },
+    {
+      "prefecture_code": "160000",
+      "prefecture_name": "長野県",
+      "region_url": "https://www.jalan.net/160000/LRG_160900/"
+    },
+    {
+      "prefecture_code": "160000",
+      "prefecture_name": "長野県",
+      "region_url": "https://www.jalan.net/160000/LRG_163500/"
+    },
+    {
+      "prefecture_code": "160000",
+      "prefecture_name": "長野県",
+      "region_url": "https://www.jalan.net/160000/LRG_161600/"
+    },
+    {
+      "prefecture_code": "160000",
+      "prefecture_name": "長野県",
+      "region_url": "https://www.jalan.net/160000/LRG_163200/"
+    },
+    {
+      "prefecture_code": "160000",
+      "prefecture_name": "長野県",
+      "region_url": "https://www.jalan.net/160000/LRG_160600/"
+    },
+    {
+      "prefecture_code": "160000",
+      "prefecture_name": "長野県",
+      "region_url": "https://www.jalan.net/160000/LRG_161100/"
+    },
+    {
+      "prefecture_code": "170000",
+      "prefecture_name": "新潟県",
+      "region_url": "https://www.jalan.net/170000/LRG_170200/"
+    },
+    {
+      "prefecture_code": "170000",
+      "prefecture_name": "新潟県",
+      "region_url": "https://www.jalan.net/170000/LRG_171100/"
+    },
+    {
+      "prefecture_code": "170000",
+      "prefecture_name": "新潟県",
+      "region_url": "https://www.jalan.net/170000/LRG_171700/"
+    },
+    {
+      "prefecture_code": "170000",
+      "prefecture_name": "新潟県",
+      "region_url": "https://www.jalan.net/170000/LRG_171400/"
+    },
+    {
+      "prefecture_code": "170000",
+      "prefecture_name": "新潟県",
+      "region_url": "https://www.jalan.net/170000/LRG_172000/"
+    },
+    {
+      "prefecture_code": "170000",
+      "prefecture_name": "新潟県",
+      "region_url": "https://www.jalan.net/170000/LRG_170600/"
+    },
+    {
+      "prefecture_code": "170000",
+      "prefecture_name": "新潟県",
+      "region_url": "https://www.jalan.net/170000/LRG_171300/"
+    },
+    {
+      "prefecture_code": "170000",
+      "prefecture_name": "新潟県",
+      "region_url": "https://www.jalan.net/170000/LRG_170500/"
+    },
+    {
+      "prefecture_code": "180000",
+      "prefecture_name": "富山県",
+      "region_url": "https://www.jalan.net/180000/LRG_180500/"
+    },
+    {
+      "prefecture_code": "180000",
+      "prefecture_name": "富山県",
+      "region_url": "https://www.jalan.net/180000/LRG_180200/"
+    },
+    {
+      "prefecture_code": "180000",
+      "prefecture_name": "富山県",
+      "region_url": "https://www.jalan.net/180000/LRG_180800/"
+    },
+    {
+      "prefecture_code": "190000",
+      "prefecture_name": "石川県",
+      "region_url": "https://www.jalan.net/190000/LRG_192000/"
+    },
+    {
+      "prefecture_code": "190000",
+      "prefecture_name": "石川県",
+      "region_url": "https://www.jalan.net/190000/LRG_192600/"
+    },
+    {
+      "prefecture_code": "190000",
+      "prefecture_name": "石川県",
+      "region_url": "https://www.jalan.net/190000/LRG_191100/"
+    },
+    {
+      "prefecture_code": "190000",
+      "prefecture_name": "石川県",
+      "region_url": "https://www.jalan.net/190000/LRG_191400/"
+    },
+    {
+      "prefecture_code": "190000",
+      "prefecture_name": "石川県",
+      "region_url": "https://www.jalan.net/190000/LRG_192300/"
+    },
+    {
+      "prefecture_code": "200000",
+      "prefecture_name": "福井県",
+      "region_url": "https://www.jalan.net/200000/LRG_200300/"
+    },
+    {
+      "prefecture_code": "200000",
+      "prefecture_name": "福井県",
+      "region_url": "https://www.jalan.net/200000/LRG_200200/"
+    },
+    {
+      "prefecture_code": "200000",
+      "prefecture_name": "福井県",
+      "region_url": "https://www.jalan.net/200000/LRG_200500/"
+    },
+    {
+      "prefecture_code": "200000",
+      "prefecture_name": "福井県",
+      "region_url": "https://www.jalan.net/200000/LRG_200400/"
+    },
+    {
+      "prefecture_code": "210000",
+      "prefecture_name": "静岡県",
+      "region_url": "https://www.jalan.net/210000/LRG_211000/"
+    },
+    {
+      "prefecture_code": "210000",
+      "prefecture_name": "静岡県",
+      "region_url": "https://www.jalan.net/210000/LRG_213500/"
+    },
+    {
+      "prefecture_code": "210000",
+      "prefecture_name": "静岡県",
+      "region_url": "https://www.jalan.net/210000/LRG_210200/"
+    },
+    {
+      "prefecture_code": "210000",
+      "prefecture_name": "静岡県",
+      "region_url": "https://www.jalan.net/210000/LRG_212600/"
+    },
+    {
+      "prefecture_code": "210000",
+      "prefecture_name": "静岡県",
+      "region_url": "https://www.jalan.net/210000/LRG_212300/"
+    },
+    {
+      "prefecture_code": "210000",
+      "prefecture_name": "静岡県",
+      "region_url": "https://www.jalan.net/210000/LRG_210400/"
+    },
+    {
+      "prefecture_code": "210000",
+      "prefecture_name": "静岡県",
+      "region_url": "https://www.jalan.net/210000/LRG_212000/"
+    },
+    {
+      "prefecture_code": "210000",
+      "prefecture_name": "静岡県",
+      "region_url": "https://www.jalan.net/210000/LRG_213700/"
+    },
+    {
+      "prefecture_code": "210000",
+      "prefecture_name": "静岡県",
+      "region_url": "https://www.jalan.net/210000/LRG_212900/"
+    },
+    {
+      "prefecture_code": "210000",
+      "prefecture_name": "静岡県",
+      "region_url": "https://www.jalan.net/210000/LRG_210500/"
+    },
+    {
+      "prefecture_code": "210000",
+      "prefecture_name": "静岡県",
+      "region_url": "https://www.jalan.net/210000/LRG_211400/"
+    },
+    {
+      "prefecture_code": "210000",
+      "prefecture_name": "静岡県",
+      "region_url": "https://www.jalan.net/210000/LRG_211100/"
+    },
+    {
+      "prefecture_code": "210000",
+      "prefecture_name": "静岡県",
+      "region_url": "https://www.jalan.net/210000/LRG_213200/"
+    },
+    {
+      "prefecture_code": "210000",
+      "prefecture_name": "静岡県",
+      "region_url": "https://www.jalan.net/210000/LRG_210800/"
+    },
+    {
+      "prefecture_code": "210000",
+      "prefecture_name": "静岡県",
+      "region_url": "https://www.jalan.net/210000/LRG_211700/"
+    },
+    {
+      "prefecture_code": "220000",
+      "prefecture_name": "岐阜県",
+      "region_url": "https://www.jalan.net/220000/LRG_221100/"
+    },
+    {
+      "prefecture_code": "220000",
+      "prefecture_name": "岐阜県",
+      "region_url": "https://www.jalan.net/220000/LRG_220200/"
+    },
+    {
+      "prefecture_code": "220000",
+      "prefecture_name": "岐阜県",
+      "region_url": "https://www.jalan.net/220000/LRG_220800/"
+    },
+    {
+      "prefecture_code": "220000",
+      "prefecture_name": "岐阜県",
+      "region_url": "https://www.jalan.net/220000/LRG_220500/"
+    },
+    {
+      "prefecture_code": "220000",
+      "prefecture_name": "岐阜県",
+      "region_url": "https://www.jalan.net/220000/LRG_220600/"
+    },
+    {
+      "prefecture_code": "220000",
+      "prefecture_name": "岐阜県",
+      "region_url": "https://www.jalan.net/220000/LRG_221500/"
+    },
+    {
+      "prefecture_code": "220000",
+      "prefecture_name": "岐阜県",
+      "region_url": "https://www.jalan.net/220000/LRG_220300/"
+    },
+    {
+      "prefecture_code": "230000",
+      "prefecture_name": "愛知県",
+      "region_url": "https://www.jalan.net/230000/LRG_230200/"
+    },
+    {
+      "prefecture_code": "230000",
+      "prefecture_name": "愛知県",
+      "region_url": "https://www.jalan.net/230000/LRG_230800/"
+    },
+    {
+      "prefecture_code": "230000",
+      "prefecture_name": "愛知県",
+      "region_url": "https://www.jalan.net/230000/LRG_231100/"
+    },
+    {
+      "prefecture_code": "230000",
+      "prefecture_name": "愛知県",
+      "region_url": "https://www.jalan.net/230000/LRG_230500/"
+    },
+    {
+      "prefecture_code": "240000",
+      "prefecture_name": "三重県",
+      "region_url": "https://www.jalan.net/240000/LRG_240200/"
+    },
+    {
+      "prefecture_code": "240000",
+      "prefecture_name": "三重県",
+      "region_url": "https://www.jalan.net/240000/LRG_241100/"
+    },
+    {
+      "prefecture_code": "240000",
+      "prefecture_name": "三重県",
+      "region_url": "https://www.jalan.net/240000/LRG_240800/"
+    },
+    {
+      "prefecture_code": "240000",
+      "prefecture_name": "三重県",
+      "region_url": "https://www.jalan.net/240000/LRG_241400/"
+    },
+    {
+      "prefecture_code": "240000",
+      "prefecture_name": "三重県",
+      "region_url": "https://www.jalan.net/240000/LRG_240500/"
+    },
+    {
+      "prefecture_code": "240000",
+      "prefecture_name": "三重県",
+      "region_url": "https://www.jalan.net/240000/LRG_241000/"
+    },
+    {
+      "prefecture_code": "240000",
+      "prefecture_name": "三重県",
+      "region_url": "https://www.jalan.net/240000/LRG_241300/"
+    },
+    {
+      "prefecture_code": "240000",
+      "prefecture_name": "三重県",
+      "region_url": "https://www.jalan.net/240000/LRG_241700/"
+    },
+    {
+      "prefecture_code": "240000",
+      "prefecture_name": "三重県",
+      "region_url": "https://www.jalan.net/240000/LRG_242000/"
+    },
+    {
+      "prefecture_code": "250000",
+      "prefecture_name": "滋賀県",
+      "region_url": "https://www.jalan.net/250000/LRG_250500/"
+    },
+    {
+      "prefecture_code": "250000",
+      "prefecture_name": "滋賀県",
+      "region_url": "https://www.jalan.net/250000/LRG_250200/"
+    },
+    {
+      "prefecture_code": "250000",
+      "prefecture_name": "滋賀県",
+      "region_url": "https://www.jalan.net/250000/LRG_251400/"
+    },
+    {
+      "prefecture_code": "250000",
+      "prefecture_name": "滋賀県",
+      "region_url": "https://www.jalan.net/250000/LRG_251700/"
+    },
+    {
+      "prefecture_code": "250000",
+      "prefecture_name": "滋賀県",
+      "region_url": "https://www.jalan.net/250000/LRG_250800/"
+    },
+    {
+      "prefecture_code": "250000",
+      "prefecture_name": "滋賀県",
+      "region_url": "https://www.jalan.net/250000/LRG_251100/"
+    },
+    {
+      "prefecture_code": "260000",
+      "prefecture_name": "京都府",
+      "region_url": "https://www.jalan.net/260000/LRG_260500/"
+    },
+    {
+      "prefecture_code": "260000",
+      "prefecture_name": "京都府",
+      "region_url": "https://www.jalan.net/260000/LRG_260200/"
+    },
+    {
+      "prefecture_code": "260000",
+      "prefecture_name": "京都府",
+      "region_url": "https://www.jalan.net/260000/LRG_264200/"
+    },
+    {
+      "prefecture_code": "260000",
+      "prefecture_name": "京都府",
+      "region_url": "https://www.jalan.net/260000/LRG_264800/"
+    },
+    {
+      "prefecture_code": "260000",
+      "prefecture_name": "京都府",
+      "region_url": "https://www.jalan.net/260000/LRG_262000/"
+    },
+    {
+      "prefecture_code": "260000",
+      "prefecture_name": "京都府",
+      "region_url": "https://www.jalan.net/260000/LRG_262300/"
+    },
+    {
+      "prefecture_code": "260000",
+      "prefecture_name": "京都府",
+      "region_url": "https://www.jalan.net/260000/LRG_263300/"
+    },
+    {
+      "prefecture_code": "260000",
+      "prefecture_name": "京都府",
+      "region_url": "https://www.jalan.net/260000/LRG_263900/"
+    },
+    {
+      "prefecture_code": "260000",
+      "prefecture_name": "京都府",
+      "region_url": "https://www.jalan.net/260000/LRG_261400/"
+    },
+    {
+      "prefecture_code": "260000",
+      "prefecture_name": "京都府",
+      "region_url": "https://www.jalan.net/260000/LRG_264500/"
+    },
+    {
+      "prefecture_code": "270000",
+      "prefecture_name": "大阪府",
+      "region_url": "https://www.jalan.net/270000/LRG_271700/"
+    },
+    {
+      "prefecture_code": "270000",
+      "prefecture_name": "大阪府",
+      "region_url": "https://www.jalan.net/270000/LRG_272000/"
+    },
+    {
+      "prefecture_code": "270000",
+      "prefecture_name": "大阪府",
+      "region_url": "https://www.jalan.net/270000/LRG_272900/"
+    },
+    {
+      "prefecture_code": "270000",
+      "prefecture_name": "大阪府",
+      "region_url": "https://www.jalan.net/270000/LRG_271400/"
+    },
+    {
+      "prefecture_code": "270000",
+      "prefecture_name": "大阪府",
+      "region_url": "https://www.jalan.net/270000/LRG_273200/"
+    },
+    {
+      "prefecture_code": "270000",
+      "prefecture_name": "大阪府",
+      "region_url": "https://www.jalan.net/270000/LRG_273800/"
+    },
+    {
+      "prefecture_code": "270000",
+      "prefecture_name": "大阪府",
+      "region_url": "https://www.jalan.net/270000/LRG_272600/"
+    },
+    {
+      "prefecture_code": "270000",
+      "prefecture_name": "大阪府",
+      "region_url": "https://www.jalan.net/270000/LRG_273500/"
+    },
+    {
+      "prefecture_code": "270000",
+      "prefecture_name": "大阪府",
+      "region_url": "https://www.jalan.net/270000/LRG_272300/"
+    },
+    {
+      "prefecture_code": "280000",
+      "prefecture_name": "兵庫県",
+      "region_url": "https://www.jalan.net/280000/LRG_280200/"
+    },
+    {
+      "prefecture_code": "280000",
+      "prefecture_name": "兵庫県",
+      "region_url": "https://www.jalan.net/280000/LRG_280500/"
+    },
+    {
+      "prefecture_code": "280000",
+      "prefecture_name": "兵庫県",
+      "region_url": "https://www.jalan.net/280000/LRG_281700/"
+    },
+    {
+      "prefecture_code": "280000",
+      "prefecture_name": "兵庫県",
+      "region_url": "https://www.jalan.net/280000/LRG_280800/"
+    },
+    {
+      "prefecture_code": "280000",
+      "prefecture_name": "兵庫県",
+      "region_url": "https://www.jalan.net/280000/LRG_281100/"
+    },
+    {
+      "prefecture_code": "280000",
+      "prefecture_name": "兵庫県",
+      "region_url": "https://www.jalan.net/280000/LRG_281400/"
+    },
+    {
+      "prefecture_code": "280000",
+      "prefecture_name": "兵庫県",
+      "region_url": "https://www.jalan.net/280000/LRG_281200/"
+    },
+    {
+      "prefecture_code": "290000",
+      "prefecture_name": "奈良県",
+      "region_url": "https://www.jalan.net/290000/LRG_290200/"
+    },
+    {
+      "prefecture_code": "290000",
+      "prefecture_name": "奈良県",
+      "region_url": "https://www.jalan.net/290000/LRG_290500/"
+    },
+    {
+      "prefecture_code": "290000",
+      "prefecture_name": "奈良県",
+      "region_url": "https://www.jalan.net/290000/LRG_290800/"
+    },
+    {
+      "prefecture_code": "300000",
+      "prefecture_name": "和歌山県",
+      "region_url": "https://www.jalan.net/300000/LRG_300200/"
+    },
+    {
+      "prefecture_code": "300000",
+      "prefecture_name": "和歌山県",
+      "region_url": "https://www.jalan.net/300000/LRG_301000/"
+    },
+    {
+      "prefecture_code": "300000",
+      "prefecture_name": "和歌山県",
+      "region_url": "https://www.jalan.net/300000/LRG_301100/"
+    },
+    {
+      "prefecture_code": "300000",
+      "prefecture_name": "和歌山県",
+      "region_url": "https://www.jalan.net/300000/LRG_300500/"
+    },
+    {
+      "prefecture_code": "300000",
+      "prefecture_name": "和歌山県",
+      "region_url": "https://www.jalan.net/300000/LRG_300300/"
+    },
+    {
+      "prefecture_code": "300000",
+      "prefecture_name": "和歌山県",
+      "region_url": "https://www.jalan.net/300000/LRG_300800/"
+    },
+    {
+      "prefecture_code": "310000",
+      "prefecture_name": "鳥取県",
+      "region_url": "https://www.jalan.net/310000/LRG_310800/"
+    },
+    {
+      "prefecture_code": "310000",
+      "prefecture_name": "鳥取県",
+      "region_url": "https://www.jalan.net/310000/LRG_310200/"
+    },
+    {
+      "prefecture_code": "310000",
+      "prefecture_name": "鳥取県",
+      "region_url": "https://www.jalan.net/310000/LRG_310500/"
+    },
+    {
+      "prefecture_code": "320000",
+      "prefecture_name": "島根県",
+      "region_url": "https://www.jalan.net/320000/LRG_320100/"
+    },
+    {
+      "prefecture_code": "320000",
+      "prefecture_name": "島根県",
+      "region_url": "https://www.jalan.net/320000/LRG_320500/"
+    },
+    {
+      "prefecture_code": "320000",
+      "prefecture_name": "島根県",
+      "region_url": "https://www.jalan.net/320000/LRG_320400/"
+    },
+    {
+      "prefecture_code": "320000",
+      "prefecture_name": "島根県",
+      "region_url": "https://www.jalan.net/320000/LRG_320800/"
+    },
+    {
+      "prefecture_code": "330000",
+      "prefecture_name": "岡山県",
+      "region_url": "https://www.jalan.net/330000/LRG_330200/"
+    },
+    {
+      "prefecture_code": "330000",
+      "prefecture_name": "岡山県",
+      "region_url": "https://www.jalan.net/330000/LRG_330500/"
+    },
+    {
+      "prefecture_code": "330000",
+      "prefecture_name": "岡山県",
+      "region_url": "https://www.jalan.net/330000/LRG_330800/"
+    },
+    {
+      "prefecture_code": "330000",
+      "prefecture_name": "岡山県",
+      "region_url": "https://www.jalan.net/330000/LRG_331100/"
+    },
+    {
+      "prefecture_code": "340000",
+      "prefecture_name": "広島県",
+      "region_url": "https://www.jalan.net/340000/LRG_340900/"
+    },
+    {
+      "prefecture_code": "340000",
+      "prefecture_name": "広島県",
+      "region_url": "https://www.jalan.net/340000/LRG_340300/"
+    },
+    {
+      "prefecture_code": "340000",
+      "prefecture_name": "広島県",
+      "region_url": "https://www.jalan.net/340000/LRG_341100/"
+    },
+    {
+      "prefecture_code": "340000",
+      "prefecture_name": "広島県",
+      "region_url": "https://www.jalan.net/340000/LRG_340600/"
+    },
+    {
+      "prefecture_code": "350000",
+      "prefecture_name": "山口県",
+      "region_url": "https://www.jalan.net/350000/LRG_351300/"
+    },
+    {
+      "prefecture_code": "350000",
+      "prefecture_name": "山口県",
+      "region_url": "https://www.jalan.net/350000/LRG_350300/"
+    },
+    {
+      "prefecture_code": "350000",
+      "prefecture_name": "山口県",
+      "region_url": "https://www.jalan.net/350000/LRG_350600/"
+    },
+    {
+      "prefecture_code": "350000",
+      "prefecture_name": "山口県",
+      "region_url": "https://www.jalan.net/350000/LRG_351000/"
+    },
+    {
+      "prefecture_code": "360000",
+      "prefecture_name": "徳島県",
+      "region_url": "https://www.jalan.net/360000/LRG_360200/"
+    },
+    {
+      "prefecture_code": "360000",
+      "prefecture_name": "徳島県",
+      "region_url": "https://www.jalan.net/360000/LRG_360500/"
+    },
+    {
+      "prefecture_code": "360000",
+      "prefecture_name": "徳島県",
+      "region_url": "https://www.jalan.net/360000/LRG_360800/"
+    },
+    {
+      "prefecture_code": "370000",
+      "prefecture_name": "香川県",
+      "region_url": "https://www.jalan.net/370000/LRG_370200/"
+    },
+    {
+      "prefecture_code": "370000",
+      "prefecture_name": "香川県",
+      "region_url": "https://www.jalan.net/370000/LRG_370800/"
+    },
+    {
+      "prefecture_code": "370000",
+      "prefecture_name": "香川県",
+      "region_url": "https://www.jalan.net/370000/LRG_370500/"
+    },
+    {
+      "prefecture_code": "380000",
+      "prefecture_name": "愛媛県",
+      "region_url": "https://www.jalan.net/380000/LRG_380200/"
+    },
+    {
+      "prefecture_code": "380000",
+      "prefecture_name": "愛媛県",
+      "region_url": "https://www.jalan.net/380000/LRG_380500/"
+    },
+    {
+      "prefecture_code": "380000",
+      "prefecture_name": "愛媛県",
+      "region_url": "https://www.jalan.net/380000/LRG_380800/"
+    },
+    {
+      "prefecture_code": "380000",
+      "prefecture_name": "愛媛県",
+      "region_url": "https://www.jalan.net/380000/LRG_381100/"
+    },
+    {
+      "prefecture_code": "390000",
+      "prefecture_name": "高知県",
+      "region_url": "https://www.jalan.net/390000/LRG_390200/"
+    },
+    {
+      "prefecture_code": "390000",
+      "prefecture_name": "高知県",
+      "region_url": "https://www.jalan.net/390000/LRG_390800/"
+    },
+    {
+      "prefecture_code": "390000",
+      "prefecture_name": "高知県",
+      "region_url": "https://www.jalan.net/390000/LRG_390500/"
+    },
+    {
+      "prefecture_code": "400000",
+      "prefecture_name": "福岡県",
+      "region_url": "https://www.jalan.net/400000/LRG_400100/"
+    },
+    {
+      "prefecture_code": "400000",
+      "prefecture_name": "福岡県",
+      "region_url": "https://www.jalan.net/400000/LRG_400500/"
+    },
+    {
+      "prefecture_code": "400000",
+      "prefecture_name": "福岡県",
+      "region_url": "https://www.jalan.net/400000/LRG_400800/"
+    },
+    {
+      "prefecture_code": "400000",
+      "prefecture_name": "福岡県",
+      "region_url": "https://www.jalan.net/400000/LRG_400300/"
+    },
+    {
+      "prefecture_code": "400000",
+      "prefecture_name": "福岡県",
+      "region_url": "https://www.jalan.net/400000/LRG_400600/"
+    },
+    {
+      "prefecture_code": "400000",
+      "prefecture_name": "福岡県",
+      "region_url": "https://www.jalan.net/400000/LRG_400400/"
+    },
+    {
+      "prefecture_code": "410000",
+      "prefecture_name": "佐賀県",
+      "region_url": "https://www.jalan.net/410000/LRG_410200/"
+    },
+    {
+      "prefecture_code": "410000",
+      "prefecture_name": "佐賀県",
+      "region_url": "https://www.jalan.net/410000/LRG_411100/"
+    },
+    {
+      "prefecture_code": "410000",
+      "prefecture_name": "佐賀県",
+      "region_url": "https://www.jalan.net/410000/LRG_411300/"
+    },
+    {
+      "prefecture_code": "410000",
+      "prefecture_name": "佐賀県",
+      "region_url": "https://www.jalan.net/410000/LRG_410500/"
+    },
+    {
+      "prefecture_code": "410000",
+      "prefecture_name": "佐賀県",
+      "region_url": "https://www.jalan.net/410000/LRG_410800/"
+    },
+    {
+      "prefecture_code": "420000",
+      "prefecture_name": "長崎県",
+      "region_url": "https://www.jalan.net/420000/LRG_420600/"
+    },
+    {
+      "prefecture_code": "420000",
+      "prefecture_name": "長崎県",
+      "region_url": "https://www.jalan.net/420000/LRG_420200/"
+    },
+    {
+      "prefecture_code": "420000",
+      "prefecture_name": "長崎県",
+      "region_url": "https://www.jalan.net/420000/LRG_420800/"
+    },
+    {
+      "prefecture_code": "420000",
+      "prefecture_name": "長崎県",
+      "region_url": "https://www.jalan.net/420000/LRG_421400/"
+    },
+    {
+      "prefecture_code": "420000",
+      "prefecture_name": "長崎県",
+      "region_url": "https://www.jalan.net/420000/LRG_420500/"
+    },
+    {
+      "prefecture_code": "420000",
+      "prefecture_name": "長崎県",
+      "region_url": "https://www.jalan.net/420000/LRG_421100/"
+    },
+    {
+      "prefecture_code": "430000",
+      "prefecture_name": "熊本県",
+      "region_url": "https://www.jalan.net/430000/LRG_430200/"
+    },
+    {
+      "prefecture_code": "430000",
+      "prefecture_name": "熊本県",
+      "region_url": "https://www.jalan.net/430000/LRG_430500/"
+    },
+    {
+      "prefecture_code": "430000",
+      "prefecture_name": "熊本県",
+      "region_url": "https://www.jalan.net/430000/LRG_431100/"
+    },
+    {
+      "prefecture_code": "430000",
+      "prefecture_name": "熊本県",
+      "region_url": "https://www.jalan.net/430000/LRG_430800/"
+    },
+    {
+      "prefecture_code": "430000",
+      "prefecture_name": "熊本県",
+      "region_url": "https://www.jalan.net/430000/LRG_430900/"
+    },
+    {
+      "prefecture_code": "430000",
+      "prefecture_name": "熊本県",
+      "region_url": "https://www.jalan.net/430000/LRG_430300/"
+    },
+    {
+      "prefecture_code": "430000",
+      "prefecture_name": "熊本県",
+      "region_url": "https://www.jalan.net/430000/LRG_430400/"
+    },
+    {
+      "prefecture_code": "440000",
+      "prefecture_name": "大分県",
+      "region_url": "https://www.jalan.net/440000/LRG_440500/"
+    },
+    {
+      "prefecture_code": "440000",
+      "prefecture_name": "大分県",
+      "region_url": "https://www.jalan.net/440000/LRG_440200/"
+    },
+    {
+      "prefecture_code": "440000",
+      "prefecture_name": "大分県",
+      "region_url": "https://www.jalan.net/440000/LRG_440600/"
+    },
+    {
+      "prefecture_code": "440000",
+      "prefecture_name": "大分県",
+      "region_url": "https://www.jalan.net/440000/LRG_440800/"
+    },
+    {
+      "prefecture_code": "440000",
+      "prefecture_name": "大分県",
+      "region_url": "https://www.jalan.net/440000/LRG_441400/"
+    },
+    {
+      "prefecture_code": "440000",
+      "prefecture_name": "大分県",
+      "region_url": "https://www.jalan.net/440000/LRG_441100/"
+    },
+    {
+      "prefecture_code": "450000",
+      "prefecture_name": "宮崎県",
+      "region_url": "https://www.jalan.net/450000/LRG_450200/"
+    },
+    {
+      "prefecture_code": "450000",
+      "prefecture_name": "宮崎県",
+      "region_url": "https://www.jalan.net/450000/LRG_450500/"
+    },
+    {
+      "prefecture_code": "450000",
+      "prefecture_name": "宮崎県",
+      "region_url": "https://www.jalan.net/450000/LRG_450300/"
+    },
+    {
+      "prefecture_code": "460000",
+      "prefecture_name": "鹿児島県",
+      "region_url": "https://www.jalan.net/460000/LRG_460200/"
+    },
+    {
+      "prefecture_code": "460000",
+      "prefecture_name": "鹿児島県",
+      "region_url": "https://www.jalan.net/460000/LRG_461100/"
+    },
+    {
+      "prefecture_code": "460000",
+      "prefecture_name": "鹿児島県",
+      "region_url": "https://www.jalan.net/460000/LRG_460500/"
+    },
+    {
+      "prefecture_code": "460000",
+      "prefecture_name": "鹿児島県",
+      "region_url": "https://www.jalan.net/460000/LRG_461400/"
+    },
+    {
+      "prefecture_code": "460000",
+      "prefecture_name": "鹿児島県",
+      "region_url": "https://www.jalan.net/460000/LRG_460800/"
+    },
+    {
+      "prefecture_code": "460000",
+      "prefecture_name": "鹿児島県",
+      "region_url": "https://www.jalan.net/460000/LRG_461700/"
+    },
+    {
+      "prefecture_code": "470000",
+      "prefecture_name": "沖縄県",
+      "region_url": "https://www.jalan.net/470000/LRG_470200/"
+    },
+    {
+      "prefecture_code": "470000",
+      "prefecture_name": "沖縄県",
+      "region_url": "https://www.jalan.net/470000/LRG_471400/"
+    },
+    {
+      "prefecture_code": "470000",
+      "prefecture_name": "沖縄県",
+      "region_url": "https://www.jalan.net/470000/LRG_470500/"
+    },
+    {
+      "prefecture_code": "470000",
+      "prefecture_name": "沖縄県",
+      "region_url": "https://www.jalan.net/470000/LRG_471100/"
+    },
+    {
+      "prefecture_code": "470000",
+      "prefecture_name": "沖縄県",
+      "region_url": "https://www.jalan.net/470000/LRG_471700/"
+    },
+    {
+      "prefecture_code": "470000",
+      "prefecture_name": "沖縄県",
+      "region_url": "https://www.jalan.net/470000/LRG_470800/"
+    }
+  ],
+  "schema_version": 1
+}

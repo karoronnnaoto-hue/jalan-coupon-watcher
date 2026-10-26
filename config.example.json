@@ -16,6 +16,7 @@
   "hotel_price_request_delay_seconds": 1.0,
   "hotel_price_region_retry_count": 3,
   "hotel_price_max_unique_shortfall": 1,
+  "hotel_price_region_fallback_file": "data/hotel_price_region_fallback.json",
   "hotel_price_max_regions_per_prefecture": 40,
   "hotel_price_max_pages_per_region": 50,
   "hotel_price_max_pages_per_shard": 100,

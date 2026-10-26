@@ -308,6 +308,21 @@ def discover_regions(
     delay = max(float(config.get("hotel_price_request_delay_seconds", 1.0)), 0.5)
     user_agent = str(config.get("user_agent") or DEFAULT_USER_AGENT)
     max_regions = max(int(config.get("hotel_price_max_regions_per_prefecture", 40)), 1)
+    fallback_by_prefecture: dict[str, list[str]] = {}
+    fallback_file = config.get("hotel_price_region_fallback_file")
+    if fallback_file:
+        fallback_path = Path(str(fallback_file))
+        fallback_payload = load_json(fallback_path, {})
+        fallback_regions = fallback_payload.get("regions", []) if isinstance(fallback_payload, dict) else []
+        if not isinstance(fallback_regions, list) or not fallback_regions:
+            raise RuntimeError(f"No fallback regions found in {fallback_path}")
+        for item in fallback_regions:
+            if not isinstance(item, dict):
+                continue
+            prefecture_code = str(item.get("prefecture_code") or "")
+            region_url = str(item.get("region_url") or "")
+            if prefecture_code and region_url.startswith(f"{BASE_URL}/{prefecture_code}/LRG_"):
+                fallback_by_prefecture.setdefault(prefecture_code, []).append(region_url)
     discovered: list[dict[str, str]] = []
     for index, (prefecture_code, prefecture_name) in enumerate(prefectures):
         if index:
@@ -329,6 +344,15 @@ def discover_regions(
                 break
             if validation_attempt + 1 < attempts:
                 time.sleep(retry_delay)
+        fallback_urls = fallback_by_prefecture.get(prefecture_code, [])
+        missing_fallback_urls = [url for url in fallback_urls if url not in region_urls]
+        if missing_fallback_urls:
+            print(
+                f"WARNING: {prefecture_name} live discovery returned {len(region_urls)} regions; "
+                f"adding {len(missing_fallback_urls)} from the last successful manifest",
+                flush=True,
+            )
+            region_urls.extend(missing_fallback_urls)
         if not region_urls:
             detail = f": {last_error}" if last_error else ""
             raise RuntimeError(
