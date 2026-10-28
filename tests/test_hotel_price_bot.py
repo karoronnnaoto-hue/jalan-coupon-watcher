@@ -566,6 +566,13 @@ class HotelPriceTests(unittest.TestCase):
                 2,
                 2,
                 {60: 0, 70: 0, 80: 2, 90: 0},
+                find_anomalies(
+                    observation(2000),
+                    history_state(date(2026, 10, 20), 1, 10000),
+                    date(2026, 10, 20),
+                    30,
+                    0.6,
+                ),
             )
         payload = post.call_args.args[1]
         self.assertIn("60%以上下落 2件", payload["content"])
@@ -573,6 +580,12 @@ class HotelPriceTests(unittest.TestCase):
         self.assertIn({"name": "取得宿数", "value": "23,451軒", "inline": True}, fields)
         self.assertIn({"name": "比較できた宿", "value": "23,000軒", "inline": True}, fields)
         self.assertIn({"name": "80-89%下落", "value": "2件", "inline": True}, fields)
+        self.assertTrue(
+            any(
+                field["name"] == "現在検出中の宿" and "テストホテル" in field["value"]
+                for field in fields
+            )
+        )
 
     def test_anomaly_notifications_are_grouped_by_tier(self):
         today = date(2026, 10, 22)
@@ -584,6 +597,10 @@ class HotelPriceTests(unittest.TestCase):
         self.assertIn("80%以上安いホテルを1件", payload["content"])
         self.assertIn(
             {"name": "通知区分", "value": "80%以上下落", "inline": True},
+            payload["embeds"][0]["fields"],
+        )
+        self.assertIn(
+            {"name": "宿名", "value": "テストホテル", "inline": False},
             payload["embeds"][0]["fields"],
         )
 

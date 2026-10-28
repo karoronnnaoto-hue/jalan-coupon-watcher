@@ -1012,11 +1012,13 @@ def count_anomaly_tiers(
 
 
 def _anomaly_embed(item: PriceAnomaly, tier_percent: int) -> dict[str, Any]:
+    hotel_name = item.hotel_name or f"宿番号 {item.hotel_id}"
     return {
-        "title": f"ホテル料金の異常値｜{item.hotel_name}"[:256],
+        "title": f"ホテル料金の異常値｜{hotel_name}"[:256],
         "url": item.detail_url,
         "color": 0xE53935,
         "fields": [
+            {"name": "宿名", "value": hotel_name, "inline": False},
             {"name": "エリア", "value": f"{item.prefecture} / {item.area or '不明'}", "inline": False},
             {"name": "現在の表示最低料金", "value": f"{item.price_yen:,}円", "inline": True},
             {"name": "直近30日の記録済み最低価格", "value": f"{item.historical_min_yen:,}円", "inline": True},
@@ -1063,6 +1065,7 @@ def notify_scan_summary(
     anomaly_count: int,
     notified_count: int,
     tier_counts: dict[int, int],
+    anomalies: list[PriceAnomaly] | None = None,
 ) -> None:
     tier_fields = [
         {
@@ -1075,6 +1078,27 @@ def notify_scan_summary(
             [*sorted(tier_counts)[1:], None],
         )
     ]
+    anomaly_fields: list[dict[str, Any]] = []
+    if anomalies:
+        lines: list[str] = []
+        used = 0
+        for item in anomalies:
+            hotel_name = item.hotel_name or f"宿番号 {item.hotel_id}"
+            line = f"• {hotel_name}｜{item.price_yen:,}円｜{item.drop_rate:.1%}下落"
+            if len(lines) >= 12 or used + len(line) + 1 > 950:
+                break
+            lines.append(line)
+            used += len(line) + 1
+        remaining = len(anomalies) - len(lines)
+        if remaining > 0:
+            lines.append(f"ほか {remaining:,}件")
+        anomaly_fields.append(
+            {
+                "name": "現在検出中の宿",
+                "value": "\n".join(lines),
+                "inline": False,
+            }
+        )
     post_discord(
         webhook_url,
         {
@@ -1091,6 +1115,7 @@ def notify_scan_summary(
                         {"name": "大幅下落", "value": f"{anomaly_count:,}件", "inline": True},
                         {"name": "新規通知", "value": f"{notified_count:,}件", "inline": True},
                         *tier_fields,
+                        *anomaly_fields,
                         {"name": "取得ページ数", "value": f"{page_count:,}ページ", "inline": True},
                         {"name": "収集Bot", "value": f"{shard_count}分割すべて完了", "inline": True},
                     ],
@@ -1170,6 +1195,7 @@ def run_aggregate(args: argparse.Namespace, config: dict[str, Any]) -> int:
             len(anomalies),
             len(pending),
             tier_counts,
+            anomalies,
         )
     state["anomaly_episodes"] = next_episodes
     update_history(
