@@ -1,9 +1,11 @@
 import json
+import os
 import sys
 import tempfile
 import unittest
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -21,11 +23,14 @@ from jalan_hotel_price_bot import (
     atomic_write_price_state,
     load_price_state,
     load_complete_shards,
+    migrate_price_state,
     notify_anomalies,
     notify_scan_summary,
     parse_drop_rate_thresholds,
     parse_hotel_results,
     parse_result_count,
+    plan_anomaly_notifications,
+    run_aggregate,
     shard_regions,
     update_history,
 )
@@ -337,7 +342,189 @@ class HotelPriceTests(unittest.TestCase):
         update_history(state, observation(850), today, 30)
         prices = state["hotels"]["123456"]["prices"]
         self.assertEqual(len(prices), 30)
-        self.assertEqual(prices[-1], {"date": today.isoformat(), "price_yen": 800})
+        self.assertEqual(
+            prices[-1],
+            {
+                "date": today.isoformat(),
+                "price_yen": 800,
+                "reference_price_yen": 800,
+            },
+        )
+
+    def test_anomaly_price_is_not_used_as_future_reference(self):
+        today = date(2026, 10, 20)
+        state = migrate_price_state(history_state(today, 2, 10000), (0.6, 0.7, 0.8, 0.9))
+        update_history(state, observation(2000), today, 30, {"123456"})
+        sample = state["hotels"]["123456"]["prices"][-1]
+        self.assertEqual(sample, {"date": today.isoformat(), "price_yen": 2000})
+        update_history(state, observation(10000), today, 30, set())
+        sample = state["hotels"]["123456"]["prices"][-1]
+        self.assertEqual(sample["price_yen"], 2000)
+        self.assertEqual(sample["reference_price_yen"], 10000)
+
+    def test_active_episode_keeps_pre_anomaly_baseline_across_days(self):
+        today = date(2026, 10, 21)
+        state = {
+            "schema_version": 2,
+            "hotels": {
+                "123456": {
+                    "prices": [
+                        {"date": "2026-10-19", "price_yen": 10000, "reference_price_yen": 10000},
+                        {"date": "2026-10-20", "price_yen": 2000},
+                    ]
+                }
+            },
+            "anomaly_episodes": {
+                "123456": {
+                    "baseline_yen": 10000,
+                    "lowest_notified_price_yen": 2000,
+                    "highest_notified_tier": 0.8,
+                }
+            },
+        }
+        anomalies = find_anomalies(observation(1800), state, today, 30, 0.6)
+        self.assertEqual(len(anomalies), 1)
+        self.assertEqual(anomalies[0].historical_min_yen, 10000)
+        self.assertAlmostEqual(anomalies[0].drop_rate, 0.82)
+
+    def test_episode_notifies_new_low_and_tier_then_resets_after_recovery(self):
+        thresholds = (0.6, 0.7, 0.8, 0.9)
+        today = date(2026, 10, 20)
+        state = migrate_price_state(history_state(today, 2, 10000), thresholds)
+
+        first = find_anomalies(observation(3000), state, today, 30, 0.6)
+        pending, episodes = plan_anomaly_notifications(first, observation(3000), state, today, thresholds)
+        self.assertEqual([item.price_yen for item in pending], [3000])
+        state["anomaly_episodes"] = episodes
+
+        same = find_anomalies(observation(3000), state, today + timedelta(days=1), 30, 0.6)
+        pending, episodes = plan_anomaly_notifications(
+            same, observation(3000), state, today + timedelta(days=1), thresholds
+        )
+        self.assertEqual(pending, [])
+        state["anomaly_episodes"] = episodes
+
+        lower = find_anomalies(observation(2500), state, today + timedelta(days=1), 30, 0.6)
+        pending, episodes = plan_anomaly_notifications(
+            lower, observation(2500), state, today + timedelta(days=1), thresholds
+        )
+        self.assertEqual([item.price_yen for item in pending], [2500])
+        state["anomaly_episodes"] = episodes
+
+        higher_tier = find_anomalies(observation(1900), state, today + timedelta(days=1), 30, 0.6)
+        pending, episodes = plan_anomaly_notifications(
+            higher_tier, observation(1900), state, today + timedelta(days=1), thresholds
+        )
+        self.assertEqual([item.price_yen for item in pending], [1900])
+        state["anomaly_episodes"] = episodes
+
+        rebound = find_anomalies(observation(2000), state, today + timedelta(days=1), 30, 0.6)
+        pending, episodes = plan_anomaly_notifications(
+            rebound, observation(2000), state, today + timedelta(days=1), thresholds
+        )
+        self.assertEqual(pending, [])
+        state["anomaly_episodes"] = episodes
+
+        recovered = find_anomalies(observation(5000), state, today + timedelta(days=1), 30, 0.6)
+        pending, episodes = plan_anomaly_notifications(
+            recovered, observation(5000), state, today + timedelta(days=1), thresholds
+        )
+        self.assertEqual(pending, [])
+        self.assertNotIn("123456", episodes)
+        state["anomaly_episodes"] = episodes
+
+        recurrence = find_anomalies(observation(3000), state, today + timedelta(days=2), 30, 0.6)
+        pending, _ = plan_anomaly_notifications(
+            recurrence, observation(3000), state, today + timedelta(days=2), thresholds
+        )
+        self.assertEqual([item.price_yen for item in pending], [3000])
+
+    def test_migrates_legacy_alert_lows_out_of_reference_history(self):
+        state = {
+            "schema_version": 1,
+            "hotels": {
+                "123456": {
+                    "prices": [
+                        {"date": "2026-10-20", "price_yen": 24996},
+                        {"date": "2026-10-21", "price_yen": 8568},
+                        {"date": "2026-10-22", "price_yen": 8112},
+                    ]
+                }
+            },
+            "notified": {"123456": "2026-10-21:8568:24996"},
+        }
+        migrate_price_state(state, (0.6, 0.7, 0.8, 0.9))
+        prices = state["hotels"]["123456"]["prices"]
+        self.assertEqual(prices[0]["reference_price_yen"], 24996)
+        self.assertNotIn("reference_price_yen", prices[1])
+        self.assertNotIn("reference_price_yen", prices[2])
+        self.assertEqual(state["anomaly_episodes"]["123456"]["baseline_yen"], 24996)
+        self.assertNotIn("notified", state)
+
+    def test_aggregate_persists_episode_and_reference_exclusion(self):
+        today = date(2026, 10, 20)
+        with tempfile.TemporaryDirectory(dir=Path.cwd()) as directory:
+            root = Path(directory)
+            shards = root / "shards"
+            shards.mkdir()
+            (shards / "shard-0.json").write_text(
+                json.dumps(
+                    {
+                        "schema_version": 1,
+                        "observed_date_jst": today.isoformat(),
+                        "shard_index": 0,
+                        "shard_count": 1,
+                        "pages_fetched": 1,
+                        "hotels": observation(2000),
+                    }
+                ),
+                encoding="utf-8",
+            )
+            state_path = root / "state.json.gz"
+            state = migrate_price_state(history_state(today, 2, 10000), (0.6, 0.7, 0.8, 0.9))
+            atomic_write_price_state(state_path, state)
+            args = SimpleNamespace(
+                input_dir=str(shards), state=str(state_path), dry_run=False
+            )
+            config = {
+                "hotel_price_parallel_shards": 1,
+                "hotel_price_history_days": 30,
+                "hotel_price_drop_rates": [0.6, 0.7, 0.8, 0.9],
+            }
+            with patch.dict(os.environ, {"DISCORD_WEBHOOK_URL": "https://example.test/webhook"}), patch(
+                "jalan_hotel_price_bot.post_discord"
+            ) as post:
+                self.assertEqual(run_aggregate(args, config), 0)
+            self.assertEqual(post.call_count, 2)
+            saved = load_price_state(state_path)
+            self.assertEqual(saved["anomaly_episodes"]["123456"]["baseline_yen"], 10000)
+            latest = saved["hotels"]["123456"]["prices"][-1]
+            self.assertEqual(latest, {"date": today.isoformat(), "price_yen": 2000})
+            self.assertEqual(saved["last_run"]["notified_count"], 1)
+
+    def test_legacy_recovery_then_recurrence_is_a_new_episode(self):
+        state = {
+            "schema_version": 1,
+            "hotels": {
+                "123456": {
+                    "prices": [
+                        {"date": "2026-10-20", "price_yen": 10000},
+                        {"date": "2026-10-21", "price_yen": 2000},
+                        {"date": "2026-10-22", "price_yen": 10000},
+                        {"date": "2026-10-23", "price_yen": 3000},
+                    ]
+                }
+            },
+            "notified": {"123456": "2026-10-21:2000:10000"},
+        }
+        thresholds = (0.6, 0.7, 0.8, 0.9)
+        migrate_price_state(state, thresholds)
+        self.assertNotIn("123456", state["anomaly_episodes"])
+        anomalies = find_anomalies(observation(3000), state, date(2026, 10, 23), 30, 0.6)
+        pending, _ = plan_anomaly_notifications(
+            anomalies, observation(3000), state, date(2026, 10, 23), thresholds
+        )
+        self.assertEqual([item.price_yen for item in pending], [3000])
 
     def test_complete_shards_are_required(self):
         with tempfile.TemporaryDirectory(dir=Path.cwd()) as directory:

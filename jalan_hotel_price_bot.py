@@ -33,7 +33,7 @@ from jalan_coupon_bot import (
 
 JST = timezone(timedelta(hours=9))
 RESULTS_PER_PAGE = 30
-STATE_SCHEMA_VERSION = 1
+STATE_SCHEMA_VERSION = 2
 SHARD_SCHEMA_VERSION = 1
 DEFAULT_DROP_RATE_THRESHOLDS = (0.6, 0.7, 0.8, 0.9)
 LISTING_QUERY = {
@@ -601,7 +601,11 @@ def load_complete_shards(input_dir: Path, expected_count: int) -> tuple[date, di
 
 def load_price_state(path: Path) -> dict[str, Any]:
     if not path.exists():
-        return {"schema_version": STATE_SCHEMA_VERSION, "hotels": {}, "notified": {}}
+        return {
+            "schema_version": STATE_SCHEMA_VERSION,
+            "hotels": {},
+            "anomaly_episodes": {},
+        }
     if path.suffix == ".gz":
         with gzip.open(path, "rt", encoding="utf-8") as stream:
             value = json.load(stream)
@@ -687,6 +691,10 @@ def find_anomalies(
 ) -> list[PriceAnomaly]:
     anomalies: list[PriceAnomaly] = []
     state_hotels = state.get("hotels", {})
+    legacy_state = int(state.get("schema_version", 0) or 0) < STATE_SCHEMA_VERSION
+    active_episodes = state.get("anomaly_episodes", {})
+    if not isinstance(active_episodes, dict):
+        active_episodes = {}
     earliest = observed_date - timedelta(days=history_days)
     for hotel_id, current in observations.items():
         saved = state_hotels.get(hotel_id, {}) if isinstance(state_hotels, dict) else {}
@@ -694,15 +702,27 @@ def find_anomalies(
         for sample in saved.get("prices", []):
             try:
                 sample_date = date.fromisoformat(str(sample["date"]))
-                sample_price = int(sample["price_yen"])
+                sample_price = int(
+                    sample.get("reference_price_yen")
+                    if sample.get("reference_price_yen") is not None
+                    else sample["price_yen"] if legacy_state else 0
+                )
             except (KeyError, TypeError, ValueError):
                 continue
             if earliest <= sample_date < observed_date and sample_price > 0:
                 previous = prices_by_date.get(sample_date)
                 prices_by_date[sample_date] = sample_price if previous is None else min(previous, sample_price)
-        if not prices_by_date:
+        episode = active_episodes.get(hotel_id, {})
+        try:
+            episode_baseline = int(episode.get("baseline_yen", 0))
+        except (AttributeError, TypeError, ValueError):
+            episode_baseline = 0
+        if episode_baseline > 0:
+            baseline = episode_baseline
+        elif prices_by_date:
+            baseline = min(prices_by_date.values())
+        else:
             continue
-        baseline = min(prices_by_date.values())
         current_price = int(current["price_yen"])
         drop_rate = 1 - (current_price / baseline)
         if drop_rate + 1e-12 < drop_rate_threshold:
@@ -732,14 +752,26 @@ def count_comparable_hotels(
     state_hotels = state.get("hotels", {})
     if not isinstance(state_hotels, dict):
         return 0
+    legacy_state = int(state.get("schema_version", 0) or 0) < STATE_SCHEMA_VERSION
+    active_episodes = state.get("anomaly_episodes", {})
+    if not isinstance(active_episodes, dict):
+        active_episodes = {}
     earliest = observed_date - timedelta(days=history_days)
     count = 0
     for hotel_id in observations:
+        episode = active_episodes.get(hotel_id, {})
+        if isinstance(episode, dict) and int(episode.get("baseline_yen", 0) or 0) > 0:
+            count += 1
+            continue
         saved = state_hotels.get(hotel_id, {})
         for sample in saved.get("prices", []):
             try:
                 sample_date = date.fromisoformat(str(sample["date"]))
-                sample_price = int(sample["price_yen"])
+                sample_price = int(
+                    sample.get("reference_price_yen")
+                    if sample.get("reference_price_yen") is not None
+                    else sample["price_yen"] if legacy_state else 0
+                )
             except (KeyError, TypeError, ValueError):
                 continue
             if earliest <= sample_date < observed_date and sample_price > 0:
@@ -753,28 +785,40 @@ def update_history(
     observations: dict[str, dict[str, Any]],
     observed_date: date,
     history_days: int,
+    anomaly_hotel_ids: set[str] | None = None,
 ) -> dict[str, Any]:
+    anomaly_hotel_ids = anomaly_hotel_ids or set()
     hotels = state.get("hotels")
     if not isinstance(hotels, dict):
         hotels = {}
     for hotel_id, current in observations.items():
         saved = hotels.get(hotel_id, {})
-        by_date: dict[str, int] = {}
+        by_date: dict[str, dict[str, int]] = {}
         for sample in saved.get("prices", []):
             try:
-                by_date[str(sample["date"])] = int(sample["price_yen"])
+                day = str(sample["date"])
+                entry = {"price_yen": int(sample["price_yen"])}
+                if sample.get("reference_price_yen") is not None:
+                    entry["reference_price_yen"] = int(sample["reference_price_yen"])
+                by_date[day] = entry
             except (KeyError, TypeError, ValueError):
                 continue
         day = observed_date.isoformat()
         current_price = int(current["price_yen"])
-        by_date[day] = min(by_date.get(day, current_price), current_price)
+        entry = by_date.get(day, {})
+        entry["price_yen"] = min(int(entry.get("price_yen", current_price)), current_price)
+        if hotel_id not in anomaly_hotel_ids:
+            entry["reference_price_yen"] = min(
+                int(entry.get("reference_price_yen", current_price)), current_price
+            )
+        by_date[day] = entry
         retained = sorted(by_date.items())[-history_days:]
         hotels[hotel_id] = {
             "hotel_name": str(current.get("hotel_name", "")),
             "prefecture": str(current.get("prefecture", "")),
             "area": str(current.get("area", "")),
             "detail_url": str(current.get("detail_url", "")),
-            "prices": [{"date": day, "price_yen": price} for day, price in retained],
+            "prices": [{"date": day, **values} for day, values in retained],
         }
     stale_before = observed_date - timedelta(days=history_days * 2)
     for hotel_id, saved in list(hotels.items()):
@@ -794,8 +838,8 @@ def update_history(
             "hotels": hotels,
         }
     )
-    if not isinstance(state.get("notified"), dict):
-        state["notified"] = {}
+    if not isinstance(state.get("anomaly_episodes"), dict):
+        state["anomaly_episodes"] = {}
     return state
 
 
@@ -812,11 +856,150 @@ def parse_drop_rate_thresholds(config: dict[str, Any]) -> tuple[float, ...]:
     return thresholds
 
 
+def migrate_price_state(
+    state: dict[str, Any], thresholds: tuple[float, ...]
+) -> dict[str, Any]:
+    """Upgrade legacy history without letting already-alerted lows become baselines."""
+    if int(state.get("schema_version", 0) or 0) >= STATE_SCHEMA_VERSION:
+        if not isinstance(state.get("anomaly_episodes"), dict):
+            state["anomaly_episodes"] = {}
+        return state
+
+    hotels = state.get("hotels", {})
+    if not isinstance(hotels, dict):
+        hotels = {}
+        state["hotels"] = hotels
+    legacy_notified = state.get("notified", {})
+    if not isinstance(legacy_notified, dict):
+        legacy_notified = {}
+    episodes: dict[str, dict[str, Any]] = {}
+    minimum_threshold = min(thresholds)
+
+    for hotel_id, saved in hotels.items():
+        if not isinstance(saved, dict):
+            continue
+        legacy_value = str(legacy_notified.get(hotel_id, ""))
+        started_date: date | None = None
+        notified_price = 0
+        baseline = 0
+        try:
+            started_text, price_text, baseline_text = legacy_value.split(":", 2)
+            started_date = date.fromisoformat(started_text)
+            notified_price = int(price_text)
+            baseline = int(baseline_text)
+        except (TypeError, ValueError):
+            pass
+
+        converted: list[dict[str, Any]] = []
+        anomalous_prices: list[int] = []
+        latest_is_anomaly = False
+        recovered_after_notification = False
+        for sample in sorted(saved.get("prices", []), key=lambda value: str(value.get("date", ""))):
+            try:
+                sample_date = date.fromisoformat(str(sample["date"]))
+                sample_price = int(sample["price_yen"])
+            except (KeyError, TypeError, ValueError):
+                continue
+            is_legacy_anomaly = bool(
+                started_date
+                and baseline > 0
+                and sample_date >= started_date
+                and 1 - (sample_price / baseline) + 1e-12 >= minimum_threshold
+            )
+            converted_sample = {"date": sample_date.isoformat(), "price_yen": sample_price}
+            if is_legacy_anomaly:
+                anomalous_prices.append(sample_price)
+            else:
+                converted_sample["reference_price_yen"] = sample_price
+                if started_date and sample_date >= started_date:
+                    recovered_after_notification = True
+            converted.append(converted_sample)
+            latest_is_anomaly = is_legacy_anomaly
+        saved["prices"] = converted
+
+        if (
+            started_date
+            and baseline > 0
+            and latest_is_anomaly
+            and anomalous_prices
+            and not recovered_after_notification
+        ):
+            lowest_price = min([notified_price] + anomalous_prices) if notified_price > 0 else min(anomalous_prices)
+            rate = 1 - (lowest_price / baseline)
+            episodes[hotel_id] = {
+                "baseline_yen": baseline,
+                "started_date": started_date.isoformat(),
+                "lowest_notified_price_yen": lowest_price,
+                "highest_notified_tier": drop_rate_tier(rate, thresholds),
+                "last_observed_price_yen": anomalous_prices[-1],
+            }
+
+    state["anomaly_episodes"] = episodes
+    state.pop("notified", None)
+    state["schema_version"] = STATE_SCHEMA_VERSION
+    return state
+
+
 def drop_rate_tier(drop_rate: float, thresholds: tuple[float, ...]) -> float:
     eligible = [value for value in thresholds if drop_rate + 1e-12 >= value]
     if not eligible:
         raise ValueError("drop rate does not reach a configured threshold")
     return max(eligible)
+
+
+def plan_anomaly_notifications(
+    anomalies: list[PriceAnomaly],
+    observations: dict[str, dict[str, Any]],
+    state: dict[str, Any],
+    observed_date: date,
+    thresholds: tuple[float, ...],
+) -> tuple[list[PriceAnomaly], dict[str, dict[str, Any]]]:
+    """Plan alerts for new episodes, lower prices, and newly reached tiers."""
+    stored = state.get("anomaly_episodes", {})
+    episodes = {
+        str(hotel_id): dict(value)
+        for hotel_id, value in stored.items()
+        if isinstance(value, dict)
+    } if isinstance(stored, dict) else {}
+    current_by_id = {item.hotel_id: item for item in anomalies}
+
+    # A present hotel that recovered ends its episode. Missing hotels are retained
+    # because absence from one listing run is not evidence of price recovery.
+    for hotel_id in observations:
+        if hotel_id not in current_by_id:
+            episodes.pop(hotel_id, None)
+
+    pending: list[PriceAnomaly] = []
+    for item in anomalies:
+        tier = drop_rate_tier(item.drop_rate, thresholds)
+        episode = episodes.get(item.hotel_id)
+        should_notify = episode is None
+        if episode is None:
+            episode = {
+                "baseline_yen": item.historical_min_yen,
+                "started_date": observed_date.isoformat(),
+                "lowest_notified_price_yen": item.price_yen,
+                "highest_notified_tier": tier,
+            }
+        else:
+            try:
+                previous_low = int(episode.get("lowest_notified_price_yen", item.price_yen))
+                previous_tier = float(episode.get("highest_notified_tier", min(thresholds)))
+            except (TypeError, ValueError):
+                previous_low = item.price_yen
+                previous_tier = min(thresholds)
+            should_notify = item.price_yen < previous_low or tier > previous_tier + 1e-12
+            if should_notify:
+                episode["lowest_notified_price_yen"] = min(previous_low, item.price_yen)
+                episode["highest_notified_tier"] = max(previous_tier, tier)
+        episode["baseline_yen"] = item.historical_min_yen
+        episode["last_observed_price_yen"] = item.price_yen
+        episode["last_observed_date"] = observed_date.isoformat()
+        episodes[item.hotel_id] = episode
+        if should_notify:
+            pending.append(item)
+
+    return pending, episodes
 
 
 def count_anomaly_tiers(
@@ -962,26 +1145,19 @@ def run_aggregate(args: argparse.Namespace, config: dict[str, Any]) -> int:
     thresholds = parse_drop_rate_thresholds(config)
     observed_date, observations, total_pages = load_complete_shards(Path(args.input_dir), expected_count)
     state_path = Path(args.state or config.get("hotel_price_state_file", "data/hotel_price_state.json.gz"))
-    state = load_price_state(state_path)
+    state = migrate_price_state(load_price_state(state_path), thresholds)
     anomalies = find_anomalies(observations, state, observed_date, history_days, min(thresholds))
     tier_counts = count_anomaly_tiers(anomalies, thresholds)
     comparable_count = count_comparable_hotels(observations, state, observed_date, history_days)
-    notified = state.get("notified", {})
-    if not isinstance(notified, dict):
-        notified = {}
-    pending = []
-    for item in anomalies:
-        signature = f"{observed_date.isoformat()}:{item.price_yen}:{item.historical_min_yen}"
-        if notified.get(item.hotel_id) != signature:
-            pending.append(item)
+    pending, next_episodes = plan_anomaly_notifications(
+        anomalies, observations, state, observed_date, thresholds
+    )
 
     webhook_url = os.environ.get("DISCORD_WEBHOOK_URL", "").strip()
     if not args.dry_run and not webhook_url:
         raise RuntimeError("DISCORD_WEBHOOK_URL is required for scan summaries")
     if pending and not args.dry_run:
         notify_anomalies(webhook_url, pending, thresholds)
-        for item in pending:
-            notified[item.hotel_id] = f"{observed_date.isoformat()}:{item.price_yen}:{item.historical_min_yen}"
     completed_at = datetime.now(JST)
     if not args.dry_run:
         notify_scan_summary(
@@ -995,8 +1171,14 @@ def run_aggregate(args: argparse.Namespace, config: dict[str, Any]) -> int:
             len(pending),
             tier_counts,
         )
-    state["notified"] = notified
-    update_history(state, observations, observed_date, history_days)
+    state["anomaly_episodes"] = next_episodes
+    update_history(
+        state,
+        observations,
+        observed_date,
+        history_days,
+        {item.hotel_id for item in anomalies},
+    )
     state["last_run"] = {
         "observed_date_jst": observed_date.isoformat(),
         "completed_at_jst": completed_at.isoformat(),
