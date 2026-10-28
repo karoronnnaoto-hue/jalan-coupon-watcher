@@ -679,7 +679,7 @@ def matches(coupon: Coupon, config: dict[str, Any]) -> bool:
     min_amount = int(config.get("minimum_coupon_yen", 5000))
     min_rate = float(config.get("minimum_discount_rate", 0.50))
     amount_match = coupon.discount_yen >= min_amount
-    rate_match = coupon.discount_rate is not None and coupon.discount_rate > min_rate
+    rate_match = coupon.discount_rate is not None and coupon.discount_rate >= min_rate
     match_mode = config.get("match_mode", "rate")
     if match_mode == "rate":
         return rate_match
@@ -802,7 +802,7 @@ def notify_daily_status(
                 "✅ じゃらんクーポン監視は正常です。\n"
                 "現時点では新しい該当クーポンはありません。\n"
                 f"確認時刻: {checked_at_jst:%Y-%m-%d %H:%M} JST\n"
-                f"取得: {fetched_count:,}件 / 割引率50%超: {matching_count:,}件\n"
+                f"取得: {fetched_count:,}件 / 割引率50%以上: {matching_count:,}件\n"
                 f"前回差分: 追加 {added_count:,} / 変更 {changed_count:,} / 掲載終了 {removed_count:,}"
             ),
             "username": "じゃらんクーポン監視",

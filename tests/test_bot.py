@@ -107,7 +107,7 @@ class ParserTests(unittest.TestCase):
         coupon = parse_coupons(FIXTURE)[0]
         config = {"minimum_discount_rate": 0.5, "match_mode": "rate"}
         self.assertTrue(matches(coupon, config))
-        self.assertFalse(matches(replace(coupon, discount_yen=5000), config))
+        self.assertTrue(matches(replace(coupon, discount_yen=5000), config))
         self.assertFalse(matches(replace(coupon, discount_yen=4900), config))
 
     def test_parse_active_regional_coupon_and_skip_ended_coupon(self):
@@ -302,7 +302,7 @@ class ParserTests(unittest.TestCase):
 
         payload = mocked_post.call_args.args[1]
         self.assertIn("現時点では新しい該当クーポンはありません", payload["content"])
-        self.assertIn("取得: 995件 / 割引率50%超: 5件", payload["content"])
+        self.assertIn("取得: 995件 / 割引率50%以上: 5件", payload["content"])
         self.assertIn("追加 0 / 変更 0 / 掲載終了 3", payload["content"])
 
 
