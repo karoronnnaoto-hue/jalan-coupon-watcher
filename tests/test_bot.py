@@ -32,6 +32,7 @@ from jalan_coupon_bot import (
     post_discord,
     select_notification_candidates,
     stabilize_snapshot,
+    threshold_migration_notification_keys,
 )
 
 
@@ -109,6 +110,17 @@ class ParserTests(unittest.TestCase):
         self.assertTrue(matches(coupon, config))
         self.assertTrue(matches(replace(coupon, discount_yen=5000), config))
         self.assertFalse(matches(replace(coupon, discount_yen=4900), config))
+
+    def test_schema_four_migration_notifies_exact_threshold_once(self):
+        coupon = replace(parse_coupons(FIXTURE)[0], discount_yen=5000)
+        config = {"minimum_discount_rate": 0.5, "match_mode": "rate"}
+        self.assertEqual(
+            threshold_migration_notification_keys([coupon], config, 4),
+            {coupon_key(coupon)},
+        )
+        self.assertEqual(
+            threshold_migration_notification_keys([coupon], config, 5), set()
+        )
 
     def test_parse_active_regional_coupon_and_skip_ended_coupon(self):
         coupons = parse_regional_coupons(

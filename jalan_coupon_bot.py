@@ -42,7 +42,7 @@ LISTING_PARAMS = {
     "activeSort": "2",
 }
 DEFAULT_USER_AGENT = "JalanCouponWatcher/1.0 (+personal, low-frequency monitor)"
-STATE_SCHEMA_VERSION = 4
+STATE_SCHEMA_VERSION = 5
 JST = timezone(timedelta(hours=9))
 
 
@@ -389,6 +389,21 @@ def stabilize_snapshot(
 def notification_keys(known: dict[str, str], current: dict[str, str]) -> set[str]:
     """Return newly seen coupons and coupons whose details changed."""
     return {key for key, signature in current.items() if known.get(key) != signature}
+
+
+def threshold_migration_notification_keys(
+    coupons: Iterable[Coupon], config: dict[str, Any], previous_schema_version: int
+) -> set[str]:
+    """Notify exact-threshold coupons once when migrating to inclusive matching."""
+    if previous_schema_version != 4 or config.get("match_mode", "rate") != "rate":
+        return set()
+    min_rate = float(config.get("minimum_discount_rate", 0.50))
+    return {
+        coupon_key(coupon)
+        for coupon in coupons
+        if coupon.discount_rate is not None
+        and math.isclose(coupon.discount_rate, min_rate, rel_tol=1e-12, abs_tol=1e-12)
+    }
 
 
 def select_notification_candidates(
@@ -871,6 +886,11 @@ def run(args: argparse.Namespace) -> int:
         previous_snapshot, stable_snapshot
     )
     changed_from_known = notification_keys(known, current_snapshot)
+    changed_from_known.update(
+        threshold_migration_notification_keys(
+            coupons, config, int(state.get("schema_version", 0))
+        )
+    )
     candidates = select_notification_candidates(
         coupons,
         changed_from_known,
